@@ -1,6 +1,0 @@
-image_size: 128
-image_channels: 3
-clip_min: -1.
-clip_max: 1.
-dataset_dir: '../data/processed/Alaska/Sandwich'
-validation_split: 0.2

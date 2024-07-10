@@ -1,0 +1,8 @@
+literature/
+legacy/
+data/
+src/pleiades/exp_data
+*__
+*.
+*outputs
+*.idea

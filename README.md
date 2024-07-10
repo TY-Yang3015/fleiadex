@@ -1,2 +1,0 @@
-# ProjectPleiades
-Diffusion model development

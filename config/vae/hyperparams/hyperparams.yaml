@@ -1,8 +1,0 @@
-learning_rate: 2e-4
-batch_size: 30
-epochs: 10000
-
-save_ckpt: True
-ckpt_freq: 10
-save_comparison: True
-save_sample: False

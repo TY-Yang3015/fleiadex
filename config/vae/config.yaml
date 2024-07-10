@@ -1,5 +1,0 @@
-defaults:
-  - data_spec: data_spec
-  - nn_spec: 2d_cnn
-  - hyperparams: hyperparams
-
