@@ -2,8 +2,8 @@ literature/
 legacy/
 data/
 src/pleiades/exp_data
-*__
+__pycache__*
 *.
-*outputs
+outputs*
 *.idea
-*.DS_Store
+.DS_Store
