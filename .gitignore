@@ -6,3 +6,4 @@ src/pleiades/exp_data
 *.
 *outputs
 *.idea
+*.DS_Store
