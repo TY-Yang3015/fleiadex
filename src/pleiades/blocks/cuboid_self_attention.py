@@ -29,9 +29,9 @@ class AttentionDropout(nn.Module):
 class CuboidSelfAttention(nn.Module):
     attention_heads: int = 4
     input_channels: int = 4
-    cuboid_size: tuple[int, int, int] | list[int, int, int] = (2, 7, 7)
-    shift_size: tuple[int, int, int] | list[int, int, int] = (0, 0, 0)
-    strategy: tuple[str, str, str] | list[str, str, str] = ('l', 'l', 'l')
+    cuboid_size: tuple[int, int, int] = (2, 7, 7)
+    shift_size: tuple[int, int, int] = (0, 0, 0)
+    strategy: tuple[str, str, str] = ('l', 'l', 'l')
     padding_type: str = 'auto'
     qkv_bias: bool = False
     attention_dropout_rate: float = 0.1
