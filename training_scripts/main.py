@@ -6,7 +6,7 @@ import hydra
 from hydra.core.config_store import ConfigStore
 import tensorflow as tf
 
-import src.pleiades.vae.src.train as train
+import src.pleiades.vae.src.trainer as train
 from config.vae_config import VAEConfig
 from jax.lib import xla_bridge
 

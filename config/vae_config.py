@@ -23,7 +23,7 @@ class DataSpec:
     image_channels: int = 4
     clip_min: float = 0.
     clip_max: float = 1
-    dataset_dir: str = '../exp_data/satel_array_202312bandopt00_clear.npy'
+    dataset_dir: str = '../src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
     validation_split: float = 0.2
 
 
@@ -35,10 +35,6 @@ class CNN2dSpec(VAENNSpec):
     num_of_layers: int = 3
     stride: int = 2
     kernel_size: int = 3
-
-
-
-
 
 
 @dataclass

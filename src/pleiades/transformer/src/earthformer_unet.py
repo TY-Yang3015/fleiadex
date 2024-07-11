@@ -193,7 +193,7 @@ class EarthformerUNet(nn.Module):
 
         x = jnp.concat([cond, x], axis=1)
         x = self.observational_mask(x)
-        x = self.first_projection(x, not train)
+        x = self.first_projection(x, train)
         x = self.positional_embedding(x)
 
         time_embedding = self.init_time_embedding(t)
@@ -202,14 +202,14 @@ class EarthformerUNet(nn.Module):
             residual = x
 
         for block in self.input_attention_blocks:
-            x = block[0](x, time_embedding, not train)
-            x = block[1](x, not train)
+            x = block[0](x, time_embedding, train)
+            x = block[1](x, train)
 
         x = self.down_sampler(x)
 
         for block in self.bottleneck_attention_blocks:
-            x = block[0](x, time_embedding, not train)
-            x = block[1](x, not train)
+            x = block[0](x, time_embedding, train)
+            x = block[1](x, train)
 
         x = self.up_sampler(x)
 
@@ -217,8 +217,8 @@ class EarthformerUNet(nn.Module):
             x += residual
 
         for block in self.output_attention_blocks:
-            x = block[0](x, time_embedding, not train)
-            x = block[1](x, not train)
+            x = block[0](x, time_embedding, train)
+            x = block[1](x, train)
 
         x = self.final_projection(x[:, self.cond_input_shape[0]:, ...])
 

@@ -12,7 +12,7 @@ import optax
 import hydra
 from omegaconf import OmegaConf, DictConfig
 
-import src.pleiades.vae.src.cnn_models as models
+import legacy.cnn_2d as models
 from src.pleiades.utils.load_dataset import load_dataset
 from src.pleiades.utils.loss import kl_divergence, sse
 from src.pleiades.utils.save_image import save_image
@@ -63,7 +63,6 @@ class Trainer(nn.Module):
         os.makedirs(save_dir)
         return save_dir
 
-
     def _update_train_rng(self) -> None:
         self.train_key, self.train_rng = random.split(self.train_key)
 
@@ -89,7 +88,6 @@ class Trainer(nn.Module):
         kld_loss = kl_divergence(mean, logvar).mean()
         loss = sse_loss + kld_loss * self.config.hyperparams.kld_weight
         return loss
-
 
     def _evaluate_model(self, vae, images, latent_sample, eval_rng):
         size = self.config.data_spec.image_size
