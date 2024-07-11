@@ -37,7 +37,7 @@ class Trainer(nn.Module):
         self.train_key, self.train_rng = random.split(self.train_key)
 
         self.latent_sample: jax.Array = random.normal(latent_rng, (config.hyperparams.sample_size
-                                                                   , config.nn_spec.latents))
+                                                                   , config.nn_spec.reconstruction_channels))
 
         logging.info('initializing dataset.')
         self.train_ds, self.test_ds = load_dataset(config)

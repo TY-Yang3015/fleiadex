@@ -14,7 +14,7 @@ class Encoder(nn.Module):
     attention_use_dropout: bool = True
     attention_dropout_rate: float = 0.1
     post_attention_resnet_depth: int = 2
-    latents: int = 6
+    latents_channels: int = 3
     conv_kernel_sizes: tuple[int] = (3, 3)
 
     def setup(self) -> None:
@@ -79,13 +79,13 @@ class Encoder(nn.Module):
                                       group_size=None)
 
         self.output_conv = nn.Sequential([
-            nn.Conv(features=self.latents,
+            nn.Conv(features=self.latents_channels,
                     kernel_size=self.conv_kernel_sizes,
                     strides=(1, 1),
                     padding='SAME',
                     kernel_init=nn.initializers.kaiming_normal()
                     ),
-            nn.Conv(features=self.latents,
+            nn.Conv(features=self.latents_channels,
                     kernel_size=self.conv_kernel_sizes,
                     strides=(1, 1),
                     padding='SAME',
@@ -110,6 +110,5 @@ class Encoder(nn.Module):
         x = self.output_conv(x)
         return x
 
-
-print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 64, 64, 1)), False,
-                         depth=1, console_kwargs={'width': 150}))
+#print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 64, 64, 1)), False,
+#                         depth=1, console_kwargs={'width': 150}))
