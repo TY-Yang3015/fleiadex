@@ -79,21 +79,22 @@ class Encoder(nn.Module):
                                       group_size=None)
 
         self.output_conv = nn.Sequential([
-            nn.Conv(features=self.latents_channels,
+            nn.Conv(features=self.latents_channels * 2,
                     kernel_size=self.conv_kernel_sizes,
                     strides=(1, 1),
                     padding='SAME',
                     kernel_init=nn.initializers.kaiming_normal()
                     ),
-            nn.Conv(features=self.latents_channels,
+            nn.Conv(features=self.latents_channels * 2,
                     kernel_size=self.conv_kernel_sizes,
                     strides=(1, 1),
                     padding='SAME',
                     kernel_init=nn.initializers.kaiming_normal()
                     )])
 
+
     @nn.compact
-    def __call__(self, x, train):
+    def __call__(self, x, train:bool):
         x = self.conv_projection(x)
 
         for res_blocks, downsampler in zip(self.resnet_block_lists, self.downsampler_lists):
@@ -108,7 +109,10 @@ class Encoder(nn.Module):
         x = self.output_gr(x)
         x = nn.silu(x)
         x = self.output_conv(x)
-        return x
 
-#print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 64, 64, 1)), False,
-#                         depth=1, console_kwargs={'width': 150}))
+        mean, logvar = x[..., :3], x[..., 3:]
+
+        return mean, logvar
+
+print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 64, 64, 1)), False,
+                         depth=1, console_kwargs={'width': 150}))

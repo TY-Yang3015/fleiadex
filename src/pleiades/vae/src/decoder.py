@@ -94,7 +94,7 @@ class Decoder(nn.Module):
                                    )
 
     @nn.compact
-    def __call__(self, x, train):
+    def __call__(self, x, train:bool):
 
         if x.shape[-1] != self.latent_channels:
             raise ValueError()
