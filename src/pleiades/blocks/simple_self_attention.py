@@ -20,7 +20,7 @@ class SelfAttention(nn.Module):
             qkv_features=x.shape[-1],
             out_features=self.output_channels,
             dropout_rate=0 if self.use_dropout is False else self.dropout_rate,
-            deterministic=~train,
+            deterministic=not train,
             use_bias=self.use_qkv_bias
         )(x)
         x = nn.Dense(self.output_channels)(x)

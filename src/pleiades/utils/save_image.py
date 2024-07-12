@@ -32,8 +32,8 @@ def save_image(config, save_dir, ndarray, fp, nrow=8, padding=2, pad_value=0.0, 
 
     ndarray = jnp.asarray(ndarray)
 
-    ndarray -= config.data_spec.clip_min
-    ndarray /= (config.data_spec.clip_max - config.data_spec.clip_min)
+    ndarray -= config['data_spec']['clip_min']
+    ndarray /= (config['data_spec']['clip_max'] - config['data_spec']['clip_min'])
 
     if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
         ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)

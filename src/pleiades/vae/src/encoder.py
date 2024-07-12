@@ -92,9 +92,8 @@ class Encoder(nn.Module):
                     kernel_init=nn.initializers.kaiming_normal()
                     )])
 
-
     @nn.compact
-    def __call__(self, x, train:bool):
+    def __call__(self, x, train: bool):
         x = self.conv_projection(x)
 
         for res_blocks, downsampler in zip(self.resnet_block_lists, self.downsampler_lists):
@@ -114,5 +113,5 @@ class Encoder(nn.Module):
 
         return mean, logvar
 
-print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 64, 64, 1)), False,
-                         depth=1, console_kwargs={'width': 150}))
+#print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 64, 64, 1)), False,
+#                         depth=1, console_kwargs={'width': 150}))

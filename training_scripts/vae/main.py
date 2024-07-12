@@ -26,7 +26,7 @@ cs.store(name='vae_config', node=VAEConfig)
 @hydra.main(version_base=None, config_name="vae_config")
 def run(config: VAEConfig) -> None:
     trainer = train.Trainer(config)
-    trainer.execute()
+    trainer.train()
 
 
 def main(argv):

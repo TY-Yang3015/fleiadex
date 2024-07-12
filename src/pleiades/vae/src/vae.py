@@ -7,7 +7,6 @@ from src.pleiades.vae.src.decoder import Decoder
 from src.pleiades.vae.src.encoder import Encoder
 
 
-
 class VAE(nn.Module):
     encoder_spatial_downsample_schedule: tuple[int] = (2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
@@ -59,7 +58,7 @@ class VAE(nn.Module):
             conv_kernel_sizes=self.decoder_conv_kernel_sizes
         )
 
-    def __call__(self, x, z_rng, train:bool):
+    def __call__(self, x, z_rng, train: bool):
         mean, logvar = self.encoder(x, train)
         z = self.reparameterise(z_rng, mean, logvar)
         recon_x = self.decoder(z, train)
@@ -73,7 +72,8 @@ class VAE(nn.Module):
         eps = jax.random.normal(rng, logvar.shape)
         return mean + eps * std
 
-#print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
+
+# print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
 #                     jax.random.PRNGKey(1), False))
 
 

@@ -1,21 +1,21 @@
 import tensorflow as tf
+from flax.core import FrozenDict
 import numpy as np
-from omegaconf import DictConfig
 from typing import Tuple
 from absl import logging
 import os
 
 
-def load_dataset(config: DictConfig) -> Tuple[iter, iter]:
-    dataset_dir = config.data_spec.dataset_dir
-    validation_split = config.data_spec.validation_split
-    image_height = image_width = config.data_spec.image_size
-    batch_size = config.hyperparams.batch_size
+def load_dataset(config: FrozenDict) -> Tuple[iter, iter]:
+    dataset_dir = config['data_spec']['dataset_dir']
+    validation_split = config['data_spec']['validation_split']
+    image_height = image_width = config['data_spec']['image_size']
+    batch_size = config['hyperparams']['batch_size']
 
     def preprocess(image):
-        image = ((tf.cast(image, tf.float32) / 255) * (config.data_spec.clip_max - config.data_spec.clip_min)
-                 + config.data_spec.clip_min)
-        logging.info(f'image data is clipped to [{config.data_spec.clip_min}, {config.data_spec.clip_max}].')
+        image = ((tf.cast(image, tf.float32) / 255) * (config['data_spec']['clip_max'] - config['data_spec']['clip_min'])
+                 + config['data_spec']['clip_min'])
+        logging.info(f'image data is clipped to [{config['data_spec']['clip_max']}, {config['data_spec']['clip_min']}].')
         return image
 
     if dataset_dir.split('.')[-1] == 'npy':
