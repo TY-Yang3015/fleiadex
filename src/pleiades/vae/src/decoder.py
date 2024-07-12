@@ -15,7 +15,7 @@ class Decoder(nn.Module):
     attention_use_dropout: bool = True
     attention_dropout_rate: float = 0.1
     pre_output_resnet_depth: int = 3
-    reconstruction_channels: int = 1
+    reconstruction_channels: int = 4
     conv_kernel_sizes: tuple[int] = (3, 3)
 
     def setup(self) -> None:

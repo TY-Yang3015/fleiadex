@@ -27,8 +27,16 @@ class Trainer(nn.Module):
         latent_rng, self.eval_rng, self.dropout_rng, self.train_key = self._init_rng()
         self.train_key, self.train_rng = random.split(self.train_key)
 
-        self.latent_sample: jax.Array = random.normal(latent_rng, (config['hyperparams']['sample_size']
-                                                                   , config['nn_spec']['decoder_latent_channels']))
+        latent_size = 1
+        for down_factor in config['nn_spec']['encoder_spatial_downsample_schedule']:
+            latent_size *= down_factor
+
+        latent_size = int(config['data_spec']['image_size'] / latent_size)
+
+        self.latent_sample: jax.Array = random.normal(latent_rng,
+                                                      (config['hyperparams']['sample_size'],
+                                                       latent_size, latent_size
+                                                       , config['nn_spec']['decoder_latent_channels']))
 
         logging.info('initializing dataset.')
         self.train_ds, self.test_ds = load_dataset(self.config)
@@ -88,7 +96,7 @@ class Trainer(nn.Module):
         recon_images, mean, logvar = vae(images, eval_rng, train)
         comparison = jnp.concatenate([
             images[:].reshape(-1, size, size, channels),
-            recon_images[:].reshape(-1, size, size, channels),
+            recon_images[:].reshape(recon_images.shape[0], size, size, channels),
         ])
 
         generate_images = vae.generate(latent_sample)
@@ -100,7 +108,8 @@ class Trainer(nn.Module):
     @partial(jax.jit, static_argnames='self')
     def _evaluate(self, params, images, latent_sample, eval_rng):
         return nn.apply(self._evaluate_model, self.vae)({"params": params}, images
-                                                        , latent_sample, eval_rng, True)
+                                                        , latent_sample, eval_rng, True,
+                                                        rngs={'dropout': self.dropout_rng})
 
     def _save_output(self, save_dir, comparison, sample, epoch):
         if self.config['hyperparams']['save_comparison']:

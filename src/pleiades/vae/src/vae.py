@@ -28,7 +28,7 @@ class VAE(nn.Module):
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.1
     decoder_pre_output_resnet_depth: int = 3
-    decoder_reconstruction_channels: int = 1
+    decoder_reconstruction_channels: int = 4
     decoder_conv_kernel_sizes: tuple[int] = (3, 3)
 
     def setup(self):
