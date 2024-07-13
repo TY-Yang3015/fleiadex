@@ -27,6 +27,40 @@ class AttentionDropout(nn.Module):
 
 
 class CuboidSelfAttention(nn.Module):
+    """
+    the implementation of cuboid attention mechanism in the paper **EarthFormer**
+    (https://arxiv.org/abs/2207.05833). You are advised to read the paper before
+    using this layer.
+
+    takes a 4d tensor with the shape ``(batch_size, time_length, width, height, channels)``
+    (**Important: this shape is not the same order as the original implementation** due to
+    the difference between the default convolutional kernels in ``pytorch`` and ``tensorflow``/
+    ``flax.linen``) as input, reshape it to ``(batch_size, cuboids, cuboid_volume, channels)``
+    before multi-head attention. It's believed that this re-shuffling will improve the
+    ability of the transformer to capture inter-regional (spatial/temporal) correlation.
+
+    :cvar attention_heads: int. number of attention heads in the multi-head attention mechanism.
+        this must be a factor of input channels (i.e. divisible).
+    :cvar input_channels: int. the number of input channels.
+    :cvar cuboid_size: 3d tuple. the size of the cuboids in the order
+        ``(cuboid_time_length, cuboid_width, cuboid_height)``. padding will be applied if
+        relative dimensions are not divisible by cuboid_size before shuffling.
+    :cvar shift_size: 3d tuple. the shift applied to the cuboids when shuffling. any shift larger
+        than the cuboid sizes will be regarded as cycling.
+    :cvar strategy: 3d tuple of str. ``l`` for "local" or ``d`` for "dilated". "local" means gathering the
+        adjacent pixels as a cuboid, whereas "dilated" means mixing pixels from different
+        region and time with gap up_round(dimension/cuboid_size). Check out the paper for
+        details.
+    :cvar padding_type: str. the padding type to use for padding the input tensors.
+    :cvar qkv_bias: bool, whether to use bias for qkv matrices.
+    :cvar attention_dropout_rate: float, dropout rate for attention block.
+    :cvar use_relative_position: bool, whether to use relative position for attentions.
+    :cvar use_final_projector: bool, whether to use a final projection layer.
+    :cvar final_projection_dropout: float, dropout rate for final projection layer. only used
+        if the use_final_projector is True.
+
+    """
+
     attention_heads: int = 4
     input_channels: int = 4
     cuboid_size: tuple[int, int, int] = (2, 7, 7)
@@ -111,7 +145,7 @@ class CuboidSelfAttention(nn.Module):
         batch_size, number_of_cuboid, cuboid_volume, c = x.shape
         t, h, w = original_shape
 
-        permutation_axis =[0]
+        permutation_axis = [0]
         for i, (block_size, total_size, element_strategy)\
             in enumerate(zip(cuboid_size, (t, h, w), strategy)):
             if element_strategy == 'l':

@@ -6,6 +6,10 @@ from src.pleiades.blocks import (SelfAttention, ResNetBlock, Identity)
 
 
 class Encoder(nn.Module):
+    """
+
+    """
+
     spatial_downsample_schedule: tuple[int] = (2, 2)
     channel_schedule: tuple[int] = (128, 256, 512)
     resnet_depth_schedule: tuple[int] = (2, 2, 2)

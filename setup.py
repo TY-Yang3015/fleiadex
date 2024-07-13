@@ -12,7 +12,8 @@ requirements = [
     'hydra-core',
     'omegaconf',
     'optax',
-    'flax'
+    'flax',
+    'einops'
 ]
 
 setup(

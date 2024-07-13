@@ -10,7 +10,7 @@ class Hyperparams:
     kld_weight: float = 0
 
     save_ckpt: bool = True
-    ckpt_freq: int = 30000
+    ckpt_freq: int = 5000
     save_comparison: bool = True
     sample_size: int = 1
     save_sample: bool = False

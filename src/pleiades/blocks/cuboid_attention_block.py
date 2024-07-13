@@ -21,6 +21,13 @@ def default_strategies():
 
 
 class CuboidAttentionBlock(nn.Module):
+    '''
+    a
+
+    takes
+
+
+    '''
     input_shape: tuple[int, int, int, int]
     attention_heads: int
     attention_pattern: str = 'axial'

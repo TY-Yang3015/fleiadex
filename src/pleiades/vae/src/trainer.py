@@ -1,13 +1,16 @@
 import shutil
+
+import jax.sharding
 from absl import logging
 from functools import partial
 import os
 from flax import linen as nn
-import flax
-import jax
-from jax import random
+from flax.core import FrozenDict
+from jax import random, jit, grad
 import jax.numpy as jnp
 import optax
+
+import orbax.checkpoint as ocp
 
 import hydra
 from omegaconf import OmegaConf, DictConfig
@@ -17,12 +20,12 @@ from src.pleiades.utils import (load_dataset, save_image, save_model,
                                 sse, kl_divergence, TrainStateWithDropout)
 
 
-class Trainer(nn.Module):
+class Trainer:
 
     def __init__(self, config: DictConfig):
         super().__init__()
 
-        self.config: flax.core.FrozenDict = flax.core.FrozenDict(OmegaConf.to_container(config))
+        self.config: FrozenDict = FrozenDict(OmegaConf.to_container(config))
 
         latent_rng, self.eval_rng, self.dropout_rng, self.train_key = self._init_rng()
         self.train_key, self.train_rng = random.split(self.train_key)
@@ -33,10 +36,10 @@ class Trainer(nn.Module):
 
         latent_size = int(config['data_spec']['image_size'] / latent_size)
 
-        self.latent_sample: jax.Array = random.normal(latent_rng,
-                                                      (config['hyperparams']['sample_size'],
-                                                       latent_size, latent_size
-                                                       , config['nn_spec']['decoder_latent_channels']))
+        self.latent_sample = random.normal(latent_rng,
+                                           (config['hyperparams']['sample_size'],
+                                            latent_size, latent_size
+                                            , config['nn_spec']['decoder_latent_channels']))
 
         logging.info('initializing dataset.')
         self.train_ds, self.test_ds = load_dataset(self.config)
@@ -51,7 +54,7 @@ class Trainer(nn.Module):
             except Exception as e:
                 raise ValueError(f"unknown learning rate type: {e} \nplease follow optax syntax.")
 
-    def _init_rng(self) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
+    def _init_rng(self) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         init_key = random.key(42)
         latent_rng, eval_rng, dropout_rng, train_key = random.split(init_key, 4)
         return latent_rng, eval_rng, dropout_rng, train_key
@@ -60,24 +63,26 @@ class Trainer(nn.Module):
         save_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
         save_dir = str(os.path.join(save_dir, 'results'))
         os.makedirs(save_dir)
+        os.makedirs(save_dir + '/sample')
+        os.makedirs(save_dir + '/comparison')
         return save_dir
 
     def _update_train_rng(self) -> None:
         self.train_key, self.train_rng = random.split(self.train_key)
 
-    @partial(jax.jit, static_argnames='self')
+    @partial(jit, static_argnames='self')
     def _train_step(self, state, batch):
-        grads = jax.grad(self._loss_fn)(state.params, batch)
+        grads = grad(self._loss_fn)(state.params, batch)
         return state.apply_gradients(grads=grads)
 
-    @partial(jax.jit, static_argnames='self')
-    def _compute_metrics(self, recon_x: jax.Array, x: jax.Array, mean: jax.Array
-                         , logvar: jax.Array) -> dict[str, jax.Array]:
+    @partial(jit, static_argnames='self')
+    def _compute_metrics(self, recon_x: jnp.ndarray, x: jnp.ndarray, mean: jnp.ndarray
+                         , logvar: jnp.ndarray) -> dict[str, jnp.ndarray]:
         sse_loss = sse(recon_x, x).mean()
         kld_loss = kl_divergence(mean, logvar).mean() * self.config['hyperparams']['kld_weight']
         return {'sse': sse_loss, 'kld': kld_loss, 'loss': sse_loss + kld_loss}
 
-    @partial(jax.jit, static_argnames='self')
+    @partial(jit, static_argnames='self')
     def _loss_fn(self, params, batch):
         recon_x, mean, logvar = self.vae.apply(
             {'params': params}, batch, self.train_key, True,
@@ -105,7 +110,7 @@ class Trainer(nn.Module):
         metrics = self._compute_metrics(recon_images, images, mean, logvar)
         return metrics, comparison, generate_images
 
-    @partial(jax.jit, static_argnames='self')
+    @partial(jit, static_argnames='self')
     def _evaluate(self, params, images, latent_sample, eval_rng):
         return nn.apply(self._evaluate_model, self.vae)({"params": params}, images
                                                         , latent_sample, eval_rng, True,
@@ -114,11 +119,14 @@ class Trainer(nn.Module):
     def _save_output(self, save_dir, comparison, sample, epoch):
         if self.config['hyperparams']['save_comparison']:
             save_image(
-                self.config, save_dir, comparison, f'/comparison_{int(epoch + 1)}.png', nrow=8
+                self.config, save_dir + '/comparison',
+                comparison, f'/comparison_{int(epoch + 1)}.png', nrow=8
             )
 
         if self.config['hyperparams']['save_sample']:
-            save_image(self.config, save_dir, sample, f'/sample_{int(epoch + 1)}.png', nrow=8)
+            save_image(self.config, save_dir + '/sample',
+                       sample, f'/sample_{int(epoch + 1)}.png', nrow=8
+            )
 
     def _clear_result(self):
         directory = self.save_dir
@@ -144,6 +152,14 @@ class Trainer(nn.Module):
             key=self.dropout_rng
         )
 
+        save_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/ckpt'))
+        save_options = ocp.CheckpointManagerOptions(max_to_keep=5,
+                                                    save_interval_steps=self.config['hyperparams']['ckpt_freq'],
+                                                    )
+        mngr = ocp.CheckpointManager(
+            save_path, options=save_options
+        )
+
         for epoch in range(self.config['hyperparams']['epochs']):
 
             batch = next(self.train_ds)
@@ -151,8 +167,12 @@ class Trainer(nn.Module):
             state = self._train_step(state, batch)
 
             if self.config['hyperparams']['save_ckpt']:
-                if (epoch % self.config['hyperparams']['ckpt_freq'] == 0) and (epoch != 0):
-                    save_model(state, self.config, epoch)
+                pass
+
+                # TODO: fix ckpt on linux system, not working in WSL2 environment.
+                # mngr.save(epoch,
+                #          args=ocp.args.StandardSave(state.params)
+                #          )
 
             if (epoch % 100 == 0) and (epoch != 0):
                 self._clear_result()

@@ -27,10 +27,10 @@ def save_model(state, config, current_epoch):
         orbax_ckpter.save(save_dir, ckpt, save_args=save_args)
     except Exception:
         pass
-    finally:
-        save_dir = str(os.path.join(hydra_dir, 'ckpt'))
-        os.rename(os.path.join(save_dir, os.listdir(save_dir)[-1]),
-                  save_dir + f'/epoch{int(current_epoch)}/')
+    #finally:
+    #    save_dir = str(os.path.join(hydra_dir, 'ckpt'))
+    #    os.rename(os.path.join(save_dir, os.listdir(save_dir)[-1]),
+    #              save_dir + f'/epoch{int(current_epoch)}/')
 
 
 def clear_oldest_save(directory):

@@ -8,6 +8,13 @@ from src.pleiades.vae.src.encoder import Encoder
 
 
 class VAE(nn.Module):
+    """
+    the implementation of variational autoencoder with residual connections
+    and self-attention blocks.
+
+    for the usage of parameters, please refer to ``pleiades.vae.encoder``
+    and ``pleiades.vae.decoder``.
+    """
     encoder_spatial_downsample_schedule: tuple[int] = (2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
     encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)
@@ -31,7 +38,7 @@ class VAE(nn.Module):
     decoder_reconstruction_channels: int = 4
     decoder_conv_kernel_sizes: tuple[int] = (3, 3)
 
-    def setup(self):
+    def setup(self) -> None:
         self.encoder = Encoder(
             spatial_downsample_schedule=self.encoder_spatial_downsample_schedule,
             channel_schedule=self.encoder_channel_schedule,
@@ -58,24 +65,59 @@ class VAE(nn.Module):
             conv_kernel_sizes=self.decoder_conv_kernel_sizes
         )
 
-    def __call__(self, x, z_rng, train: bool):
+    def __call__(self, x: jnp.ndarray, z_rng: jnp.ndarray
+                 , train: bool) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """
+        :param x: The input image to be encoded with shape ``(batch_size,
+            width, height, channels)``.
+        :param z_rng: random number generator used to encode latents.
+        :param train: bool. whether to use training or inference mode.
+
+        :return: a tuple of jnp.ndarray, consists
+            of the reconstructed image and the latents (mean and logarithmic variance).
+        """
         mean, logvar = self.encoder(x, train)
-        z = self.reparameterise(z_rng, mean, logvar)
+        z = self._reparameterise(z_rng, mean, logvar)
         recon_x = self.decoder(z, train)
         return recon_x, mean, logvar
 
-    def generate(self, z):
-        return self.decoder(z, False)
+    def generate(self, z: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """
+        :param z: the latents to be used for image generation. make sure this
+            matches the specified latents dimensions.
 
-    def reparameterise(self, rng, mean, logvar):
+        :return: the reconstructed images.
+        """
+        return self.decoder(z, train=False)
+
+    def _reparameterise(self, rng: jnp.ndarray, mean: jnp.ndarray,
+                       logvar: jnp.ndarray) -> jnp.ndarray:
+        """
+
+        the reparameterisation trick. use the equation mean + (epsilon + log(0.5 * log_var)).
+
+        :param rng: the random number generator used to generate epsilon noise.
+        :param mean: encoded means.
+        :param logvar: encoded logarithmic variances.
+
+        :return: the reparameterised latents.
+        """
         std = jnp.exp(0.5 * logvar)
         eps = jax.random.normal(rng, logvar.shape)
         return mean + eps * std
 
 
-# print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
-#                     jax.random.PRNGKey(1), False))
+#print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
+#                    jax.random.PRNGKey(1), False))
 
 
-def get_vae_instance(config: flax.core.FrozenDict):
+
+def get_vae_instance(config: flax.core.FrozenDict) -> VAE:
+    """
+    instantiate a VAE object.
+
+    :param config: flax.core.FrozenDict, the config dict.
+
+    :return: a VAE object with the specified configuration.
+    """
     return VAE(**config)
