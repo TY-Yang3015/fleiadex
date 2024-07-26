@@ -14,10 +14,10 @@ import orbax.checkpoint as ocp
 import etils.epath as path
 
 import hydra
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
 
 import src.pleiades.vae.src.vae as models
-from src.pleiades.utils import (load_dataset, save_image, save_model,
+from src.pleiades.utils import (load_dataset, save_image,
                                 sse, sae, kl_divergence, discriminator_loss,
                                 TrainStateWithDropout, TrainStateWithBatchStats)
 from src.pleiades.vae.src.discriminator import Discriminator
@@ -27,7 +27,6 @@ from config.vae_config import VAEConfig
 class Trainer:
 
     def __init__(self, config: VAEConfig):
-        super().__init__()
 
         # convert to FrozenDict, the standard config container in jax
         self.config: FrozenDict = FrozenDict(OmegaConf.to_container(config))
@@ -38,7 +37,7 @@ class Trainer:
         self.train_key, self.train_rng = random.split(self.train_key)
 
         # calculate latent size
-        latent_size = 1
+        latent_size = 1  # initialise
         for down_factor in self.config['nn_spec']['encoder_spatial_downsample_schedule']:
             latent_size *= down_factor
         latent_size = int(self.config['data_spec']['image_size'] / latent_size)
@@ -102,7 +101,7 @@ class Trainer:
 
         def vae_loss_fn(params):
             recon_x, mean, logvar = vae_state.apply_fn(
-                {'params': params}, batch, self.train_key, True,
+                {'params': params}, batch, self.train_rng, True,
                 rngs={'dropout': self.dropout_rng}
             )
 
@@ -122,7 +121,7 @@ class Trainer:
 
         def vae_loss_fn(params):
             recon_x, mean, logvar = vae_state.apply_fn(
-                {'params': params}, batch, self.train_key, True,
+                {'params': params}, batch, self.train_rng, True,
                 rngs={'dropout': self.dropout_rng}
             )
 
@@ -220,7 +219,7 @@ class Trainer:
             metrics = compute_vae_metric(recon_images, images, mean, logvar)
             return metrics, comparison, generate_images
 
-        return nn.apply(evaluate_vae, self.vae)({'params': params}, True,
+        return nn.apply(evaluate_vae, self.vae)({'params': params}, False,
                                                 rngs={'dropout': self.dropout_rng})
 
     @partial(jit, static_argnames='self')
@@ -249,7 +248,7 @@ class Trainer:
             metrics = compute_vae_metric(recon_images, images, mean, logvar)
             return metrics, comparison, generate_images
 
-        return nn.apply(evaluate_vae, self.vae)({'params': params}, True,
+        return nn.apply(evaluate_vae, self.vae)({'params': params}, False,
                                                 rngs={'dropout': self.dropout_rng})
 
     @partial(jit, static_argnames='self')
@@ -291,7 +290,7 @@ class Trainer:
         logging.info('loading vae from %s', ckpt_dir)
 
         if isinstance(ckpt_dir, str):
-            disc_save_dir = ckpt_dir.strip(ckpt_dir.split('/')[-1]) + 'disc_ckpt'
+            disc_save_dir = path.Path(ckpt_dir.strip(ckpt_dir.split('/')[-1]) + 'disc_ckpt')
             ckpt_dir = path.Path(ckpt_dir)
         else:
             raise ValueError('ckpt dir must be str.')
@@ -364,7 +363,6 @@ class Trainer:
                 else:
                     restored_disc = mngr.restore(mngr.latest_step(),
                                                  args=ocp.args.StandardRestore(discriminator_state))
-
 
         logging.info('loading succeeded.')
 
@@ -439,7 +437,7 @@ class Trainer:
                 vae_state = self._vae_train_step(vae_state, discriminator_state, batch)
                 discriminator_state = self._discriminator_train_step(discriminator_state, vae_state, batch)
             else:
-                vae_state = self._vae_init_step(vae_state, next(self.train_ds))
+                vae_state = self._vae_init_step(vae_state, batch)
 
             if self.config['hyperparams']['save_ckpt']:
                 vae_mngr.save(step, args=ocp.args.Composite(
@@ -472,7 +470,7 @@ class Trainer:
 
             if step > self.config['hyperparams']['discriminator_start_after']:
                 logging.info(
-                    'eval step: {}, loss: {:.4f}, sae: {:.4f}, kld: {:.4f}, disc: {:.4f}'.format(
+                    'step: {}, loss: {:.4f}, sae: {:.4f}, kld: {:.4f}, disc: {:.4f}'.format(
                         step + 1, vae_metrics['loss'], vae_metrics['sae'], vae_metrics['kld'],
                         vae_metrics['disc_loss']
                     )
@@ -481,7 +479,7 @@ class Trainer:
                 logging.info('discriminator loss: {:.4f}'.format(discriminator_metric['loss']))
             else:
                 logging.info(
-                    'eval step: {}, loss: {:.4f}, sae: {:.4f}, kld: {:.4f}'.format(
+                    'step: {}, loss: {:.4f}, sae: {:.4f}, kld: {:.4f}'.format(
                         step + 1, vae_metrics['loss'], vae_metrics['sae'], vae_metrics['kld']
                     )
                 )

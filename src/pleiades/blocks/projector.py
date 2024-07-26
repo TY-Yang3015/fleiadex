@@ -22,7 +22,8 @@ class Projector(nn.Module):
         :param x: input tensor of shape ``(batch, ..., input_channels)``.
         :return: the projected input with shape ``(batch, ..., output_channels)``.
         """
-        x = nn.GroupNorm()(x)
+        x = nn.GroupNorm(num_groups=self.group if x.shape[-1] % self.group == 0 else x.shape[-1],
+                         group_size=None)(x)
         x = nn.silu(x)
         x = nn.Conv(features=self.output_channels,
                     kernel_size=(3, 3),

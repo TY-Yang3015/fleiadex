@@ -106,6 +106,16 @@ class VAE(nn.Module):
         eps = jax.random.normal(rng, logvar.shape)
         return mean + eps * std
 
+    def encode(self, x: jnp.ndarray, z_rng: jax.random.PRNGKey) -> jnp.ndarray:
+        mean, logvar = self.encoder(x, False)
+        z = self._reparameterise(z_rng, mean, logvar)
+        return z
+
+    def decode(self, z):
+        recon_x = self.decoder(z, False)
+        return recon_x
+
+
 
 #print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
 #                    jax.random.PRNGKey(1), False))

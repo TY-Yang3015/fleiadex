@@ -12,7 +12,7 @@ class Hyperparams:
 
     save_ckpt: bool = True
     save_discriminator: bool = True
-    ckpt_freq: int = 2000
+    ckpt_freq: int = 20
     save_comparison: bool = True
     sample_size: int = 1
     save_sample: bool = False

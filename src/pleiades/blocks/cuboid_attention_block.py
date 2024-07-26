@@ -5,7 +5,7 @@ import jax
 
 from src.pleiades.blocks.positional_ffn import PositionalFFN
 from src.pleiades.blocks.cuboid_self_attention import CuboidSelfAttention
-from config.transformer_config import PatternFactory
+from config.transformer_attention_config import PatternFactory
 
 
 def default_cuboid_sizes():
