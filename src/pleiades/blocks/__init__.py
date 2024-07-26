@@ -11,3 +11,4 @@ from src.pleiades.blocks.patch_merge import PatchMerge3D
 from src.pleiades.blocks.resnet_block import ResNetBlock
 from src.pleiades.blocks.simple_self_attention import SelfAttention
 from src.pleiades.blocks.identity import Identity
+from src.pleiades.blocks.downsampler_with_batchnorm import DownSamplerBatchNorm

@@ -3,14 +3,16 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Hyperparams:
-    learning_rate: float | str = "optax.exponential_decay(\
-        1e-4, 6000, 1e-2, 2000)"
+    learning_rate: float | str = "optax.cosine_decay_schedule(1e-5, 80000, 1e-7)"
     batch_size: int = 15
-    epochs: int = 100000
+    step: int = 100000
     kld_weight: float = 0
+    disc_weight: float = 1e-5
+    discriminator_start_after: int = 20000
 
     save_ckpt: bool = True
-    ckpt_freq: int = 5000
+    save_discriminator: bool = True
+    ckpt_freq: int = 2000
     save_comparison: bool = True
     sample_size: int = 1
     save_sample: bool = False

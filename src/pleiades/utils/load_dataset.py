@@ -4,6 +4,7 @@ import numpy as np
 from typing import Tuple
 from absl import logging
 import os
+from einops import rearrange
 
 
 def load_dataset(config: FrozenDict) -> Tuple[iter, iter]:
@@ -43,10 +44,7 @@ def adjust_dataset_shape(data: np.ndarray) -> np.ndarray:
     if np.argmin(data.shape) != 3:
 
         if np.argmin(data.shape) == 1:
-            new_data = np.zeros((data.shape[0], data.shape[2], data.shape[3], data.shape[1]))
-            for i, v in enumerate(data):
-                for j, w in enumerate(v):
-                    new_data[i, :, :, j] = data[i, j, :, :]
+            new_data = rearrange(data, 'b c h w -> b h w c')
         else:
             raise ValueError(f'check the dimension of data {data.shape}')
 

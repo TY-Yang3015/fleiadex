@@ -6,7 +6,7 @@ import hydra
 from hydra.core.config_store import ConfigStore
 import tensorflow as tf
 
-import src.pleiades.vae.src.trainer as train
+import src.pleiades.vae.src.vae_trainer as train
 from config.vae_config import VAEConfig
 from jax.lib import xla_bridge
 
@@ -24,12 +24,16 @@ cs.store(name='vae_config', node=VAEConfig)
 
 
 @hydra.main(version_base=None, config_name="vae_config")
-def run(config: VAEConfig) -> None:
+def execute(config: VAEConfig) -> None:
     trainer = train.Trainer(config)
+    # trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
+    #                      "2024-07-20/06-09-59/results/vae_ckpt")
     trainer.train()
 
 
 def main(argv):
+
+
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
 
@@ -51,7 +55,7 @@ def main(argv):
         f'process_count: {jax.process_count()}'
     )
 
-    run()
+    execute()
 
 
 if __name__ == '__main__':
