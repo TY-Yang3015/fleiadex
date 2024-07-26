@@ -20,7 +20,7 @@ class Hyperparams:
     diffusion_time_steps: int = 1000
     step: int = 100000
 
-    save_ckpt: bool = True
+    save_ckpt: bool = False
     ckpt_freq: int = 2000
     save_prediction: bool = True
 
