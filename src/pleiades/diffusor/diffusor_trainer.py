@@ -206,17 +206,22 @@ class Trainer:
             return {'mse': mse_loss, 'loss': mse_loss}
 
         def evaluate(diffusor):
-            # images = test_batch[0, :self.config['data_spec']['condition_length']]
 
             predictions = diffusor.generate_prediction(test_batch[:, :self.config['data_spec']['condition_length']],
                                                        self.eval_rng)
 
+            predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], predictions],
+                                          axis=1)
+
+            predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
             predictions = self.vae.apply_fn({'params': self.vae.params},
                                             predictions, method='decode')
 
-            predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], predictions],
-                                          axis=1)
-            predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
+            # predictions = predictions.reshape(self.config['hyperparams']['batch_size'], self.temporal_length,
+            #                                  predictions.shape[2], predictions.shape[3],
+            #                                  predictions.shape[4])
+
+            # predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
 
             pred, true = diffusor.apply({'params': params, 'constants': consts},
                                         test_batch, self.eval_rng, False,

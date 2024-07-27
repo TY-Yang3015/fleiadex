@@ -17,4 +17,3 @@ class DefaultFactory:
     @staticmethod
     def default_depth():
         return [4, 4, 4]
-        # return [1, 1, 1]
