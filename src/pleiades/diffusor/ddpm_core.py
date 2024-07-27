@@ -61,7 +61,7 @@ class DDPMCore(nn.Module):
             ts = jnp.full((x_cond.shape[0], 1, 1, 1, 1), t, dtype=jnp.int32)
             pred_noise = self.unet_backbone(z_t, x_cond, ts, False)
             z_t = self.diffusion_mngr.p_sample(
-                pred_noise, z_t, ts, clip_denoised=True
+                pred_noise, z_t, ts, clip_denoised=False
             )
 
         return z_t

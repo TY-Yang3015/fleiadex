@@ -60,7 +60,7 @@ class DDPMManager(nn.Module):
 
         return posterior_mean, posterior_var, posterior_log_var
 
-    def p_mean_var(self, pred_noise, x, t, clip_denoised=True):
+    def p_mean_var(self, pred_noise, x, t, clip_denoised=False):
         x_recon = self.predict_start_from_noise(x, t, pred_noise)
         if clip_denoised:
             x_recon = jnp.clip(x_recon, self.clip_min, self.clip_max)
@@ -70,7 +70,7 @@ class DDPMManager(nn.Module):
         )
         return model_mean, posterior_var, posterior_log_var
 
-    def p_sample(self, pred_noise, x, t, clip_denoised=True):
+    def p_sample(self, pred_noise, x, t, clip_denoised=False):
         model_mean, _, model_log_var = self.p_mean_var(pred_noise, x, t, clip_denoised)
 
         noise = jax.random.normal(self.key, x.shape)

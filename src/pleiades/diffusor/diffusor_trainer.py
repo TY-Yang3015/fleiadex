@@ -210,10 +210,13 @@ class Trainer:
 
             predictions = diffusor.generate_prediction(test_batch[:, :self.config['data_spec']['condition_length']],
                                                        self.eval_rng)
-            predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
 
             predictions = self.vae.apply_fn({'params': self.vae.params},
                                             predictions, method='decode')
+
+            predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], predictions],
+                                          axis=1)
+            predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
 
             pred, true = diffusor.apply({'params': params, 'constants': consts},
                                         test_batch, self.eval_rng, False,
