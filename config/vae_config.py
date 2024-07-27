@@ -7,7 +7,7 @@ class Hyperparams:
     batch_size: int = 15
     step: int = 100000
     kld_weight: float = 0
-    disc_weight: float = 1e-5
+    disc_weight: float = 1e-3
     discriminator_start_after: int = 20000
 
     save_ckpt: bool = True

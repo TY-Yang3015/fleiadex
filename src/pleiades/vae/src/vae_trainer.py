@@ -6,7 +6,7 @@ from functools import partial
 import os
 from flax import linen as nn
 from flax.core import FrozenDict
-from jax import random, jit, grad
+from jax import random, jit
 import jax.numpy as jnp
 import optax
 
@@ -18,7 +18,7 @@ from omegaconf import OmegaConf
 
 import src.pleiades.vae.src.vae as models
 from src.pleiades.utils import (load_dataset, save_image,
-                                sse, sae, kl_divergence, discriminator_loss,
+                                mse, kl_divergence, discriminator_loss,
                                 TrainStateWithDropout, TrainStateWithBatchStats)
 from src.pleiades.vae.src.discriminator import Discriminator
 from config.vae_config import VAEConfig
@@ -105,9 +105,9 @@ class Trainer:
                 rngs={'dropout': self.dropout_rng}
             )
 
-            sae_loss = sae(recon_x, batch).mean()
+            mse_loss = mse(recon_x, batch).mean()
             kld_loss = kl_divergence(mean, logvar).mean()
-            vae_loss = sae_loss + kld_loss * self.config['hyperparams']['kld_weight']
+            vae_loss = mse_loss + kld_loss * self.config['hyperparams']['kld_weight']
 
             return vae_loss
 
@@ -125,10 +125,10 @@ class Trainer:
                 rngs={'dropout': self.dropout_rng}
             )
 
-            sae_loss = sae(recon_x, batch).mean()
+            mse_loss = mse(recon_x, batch).mean()
             kld_loss = kl_divergence(mean, logvar).mean()
 
-            vae_loss = sae_loss + kld_loss * self.config['hyperparams']['kld_weight']
+            vae_loss = mse_loss + kld_loss * self.config['hyperparams']['kld_weight']
 
             fake_judgement = discriminator_state.apply_fn(
                 {'params': discriminator_state.params, 'batch_stats': discriminator_state.batch_stats},
@@ -198,10 +198,10 @@ class Trainer:
 
             disc_loss = discriminator_loss(fake_judgement, origin_judgement)
             disc_loss = disc_loss * self.config['hyperparams']['disc_weight']
-            sae_loss = sae(recon_x, x).mean()
+            mse_loss = mse(recon_x, x).mean()
             kld_loss = kl_divergence(mean, logvar).mean() * self.config['hyperparams']['kld_weight']
-            return {'sae': sae_loss, 'kld': kld_loss, 'disc_loss': disc_loss,
-                    'loss': disc_loss + sae_loss + kld_loss}
+            return {'sae': mse_loss, 'kld': kld_loss, 'disc_loss': disc_loss,
+                    'loss': disc_loss + mse_loss + kld_loss}
 
         def evaluate_vae(vae, train):
             size = self.config['data_spec']['image_size']
@@ -227,10 +227,10 @@ class Trainer:
 
         def compute_vae_metric(recon_x: jnp.ndarray, x: jnp.ndarray, mean: jnp.ndarray
                                , logvar: jnp.ndarray) -> dict[str, jnp.ndarray]:
-            sae_loss = sae(recon_x, x).mean()
+            mse_loss = mse(recon_x, x).mean()
             kld_loss = kl_divergence(mean, logvar).mean() * self.config['hyperparams']['kld_weight']
-            return {'sae': sae_loss, 'kld': kld_loss, 'disc_loss': None,
-                    'loss': sae_loss + kld_loss}
+            return {'sae': mse_loss, 'kld': kld_loss, 'disc_loss': None,
+                    'loss': mse_loss + kld_loss}
 
         def evaluate_vae(vae, train):
             size = self.config['data_spec']['image_size']

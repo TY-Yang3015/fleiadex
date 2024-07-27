@@ -27,7 +27,7 @@ cs.store(name='ldm_config', node=LDMConfig)
 def execute(config: LDMConfig) -> None:
     trainer = Trainer(config)
     trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
-                          "2024-07-26/22-07-50/results/vae_ckpt")
+                          "2024-07-27/16-43-15/results/vae_ckpt")
     trainer.train()
 
 

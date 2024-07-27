@@ -11,10 +11,6 @@ def sse(epsilon_true, epsilon_pred):
 def mse(epsilon_true, epsilon_pred):
     return jnp.mean(jnp.square(epsilon_true - epsilon_pred))
 
-@jax.vmap
-def sae(epsilon_true, epsilon_pred):
-    return jnp.mean(jnp.square(epsilon_true - epsilon_pred))
-
 
 @jax.vmap
 def kl_divergence(mean, log_var):
