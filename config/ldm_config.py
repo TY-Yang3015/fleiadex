@@ -16,11 +16,11 @@ class DataSpec:
 @dataclass
 class Hyperparams:
     learning_rate: float | str = "optax.cosine_decay_schedule(1e-5, 80000, 1e-7)"
-    batch_size: int = 1
+    batch_size: int = 2
     diffusion_time_steps: int = 1000
     step: int = 100000
 
-    save_ckpt: bool = False
+    save_ckpt: bool = True
     ckpt_freq: int = 2000
     save_prediction: bool = True
 
@@ -30,7 +30,7 @@ class EarthformerSpec:
     sample_input_shape: tuple[int, int, int, int] = (DataSpec.prediction_length, 32, 32, 3)
     cond_input_shape: tuple[int, int, int, int] = (DataSpec.condition_length, 32, 32, 3)
     base_units: int = 128
-    bottleneck_depth: int = 2
+    bottleneck_depth: int = 8
     spatial_downsample_factor: int = 2
     upsampler_kernel_size: int = 3
     block_attention_pattern: str = 'axial'

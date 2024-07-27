@@ -1,3 +1,4 @@
+import flax.core.nn.attention
 import flax.linen as nn
 import jax.numpy as jnp
 import jax
@@ -5,6 +6,7 @@ from einops import rearrange
 
 from src.pleiades.errors import StructureError
 from src.pleiades.blocks.utils import pad_input, unpad_output
+
 
 class FinalProjection(nn.Module):
     dimension: int
@@ -77,6 +79,10 @@ class CuboidSelfAttention(nn.Module):
         self.layer_norm = nn.LayerNorm()
 
         if self.use_relative_position:
+            self.relative_position_bias_table = self.param(
+                'relative_position_bias_table', nn.initializers.truncated_normal(stddev=0.02),
+                (jnp.int32((2 * self.cuboid_size[0] - 1) * (2 * self.cuboid_size[1] - 1) * (2 * self.cuboid_size[2] - 1)),
+                 self.attention_heads))
             relative_position_index = self._get_relative_position_index()
             key = self.make_rng('constants')
             self.relative_position_index = self.variable('constants',
@@ -146,8 +152,8 @@ class CuboidSelfAttention(nn.Module):
         t, h, w = original_shape
 
         permutation_axis = [0]
-        for i, (block_size, total_size, element_strategy)\
-            in enumerate(zip(cuboid_size, (t, h, w), strategy)):
+        for i, (block_size, total_size, element_strategy) \
+                in enumerate(zip(cuboid_size, (t, h, w), strategy)):
             if element_strategy == 'l':
                 permutation_axis.append(i + 1)
                 permutation_axis.append(i + 4)
@@ -168,24 +174,68 @@ class CuboidSelfAttention(nn.Module):
         return x
 
     def _compute_attention_mask(self, shape, size, shift, strategy, padding_type) -> jnp.ndarray:
+        size = jnp.int32(size)
+        shift = jnp.int32(shift)
+        shape = jnp.int32(shape)
 
         t, h, w = shape
-        pad_t = (size[0] - t % size[0]) % size[0]
-        pad_h = (size[1] - h % size[1]) % size[1]
-        pad_w = (size[2] - w % size[2]) % size[2]
+        pad_t = jnp.int32((size[0] - t % size[0]) % size[0])
+        pad_h = jnp.int32((size[1] - h % size[1]) % size[1])
+        pad_w = jnp.int32((size[2] - w % size[2]) % size[2])
         data_mask = None
 
         if pad_t > 0 or pad_h > 0 or pad_w > 0:
             if padding_type == 'auto':
                 data_mask = jnp.ones((1, t, h, w, 1))
-                data_mask = jnp.pad(data_mask, (0, 0, 0))
+                data_mask = jnp.pad(data_mask, ((0, 0), (0, pad_t), (0, pad_h), (0, pad_w), (0, 0)))
+        else:
+            data_mask = jnp.ones((1, t + pad_t, h + pad_h, w + pad_w, 1))
+
+        if any(i > 0 for i in shift):
+            if padding_type == 'auto':
+                data_mask = jnp.roll(data_mask, shift=(-shift[0], -shift[1], -shift[2]), axis=(1, 2, 3))
+        if padding_type == 'auto':
+            data_mask = self._cuboid_reorder(data_mask, size, strategy)
+            data_mask = data_mask.reshape(data_mask.shape[1], data_mask.shape[2])
+
+        shift_mask = jnp.zeros((1, t + pad_t, h + pad_h, w + pad_w, 1))
+        count = 0
+
+        for ti in slice(-size[0]), slice(-size[0], -shift[0]), slice(-shift[0], None):
+            for hi in slice(-size[1]), slice(-size[1], -shift[1]), slice(-shift[1], None):
+                for wi in slice(-size[2]), slice(-size[2], -shift[2]), slice(-shift[2], None):
+                    shift_mask = shift_mask.at[:, ti, hi, wi, :].set(count)
+                    count += 1
+        shift_mask = self._cuboid_reorder(shift_mask, size, strategy)
+        shift_mask = shift_mask.reshape(data_mask.shape)
+        attention_mask = jnp.expand_dims(shift_mask, axis=1) - jnp.expand_dims(shift_mask, axis=2) == 0
+        if padding_type == 'auto':
+            attention_mask = jnp.expand_dims(data_mask, axis=1) * jnp.expand_dims(data_mask, axis=2) * attention_mask
+
+        return attention_mask
+
+    def masked_softmax(self, attention_score, mask, axis=-1):
+        def masked_fill(mask, a, fill):
+            return jax.lax.select(mask, a, jax.lax.broadcast(fill, a.shape))
+        if len(mask.shape) == 3:
+            mask = jnp.expand_dims(mask, axis=0)
+            mask = jnp.expand_dims(mask, axis=0)
+
+        if mask is not None:
+            mask = jnp.tile(mask, (attention_score.shape[0], attention_score.shape[1], 1, 1, 1))
+            attention_score = masked_fill(jnp.logical_not(mask), attention_score, -1e18)
+            attention_weights = nn.softmax(attention_score, axis=axis) * mask
+        else:
+            attention_weights = nn.softmax(attention_score, axis=axis)
+
+        return attention_weights
 
     def __call__(self, x_input: jnp.ndarray, train: bool) -> jnp.ndarray:
         x = self.layer_norm(x_input)
 
         batch_size, t, h, w, c_in = x.shape
         assert c_in == self.input_channels, ("the input channel dimension "
-                                        "does not much the specified dimension value.")
+                                             "does not much the specified dimension value.")
         assert c_in % self.attention_heads == 0, ("the attention head dimension must "
                                                   "be a factor of the input dimension.")
 
@@ -203,7 +253,9 @@ class CuboidSelfAttention(nn.Module):
         x_reordered = self._cuboid_reorder(shifted_x, cuboid_size=self.cuboid_size, strategy=self.strategy)
         _, number_of_cuboids, cuboid_volume, _ = x_reordered.shape
 
-        #TODO: attention mask
+        attention_mask = self._compute_attention_mask((t, h, w), self.cuboid_size,
+                                                      self.shift_size, self.strategy,
+                                                      self.padding_type)
 
         channel_heads = c_in // self.attention_heads
         qkv = self.qkv(x_reordered).reshape(batch_size, number_of_cuboids, cuboid_volume, 3,
@@ -216,12 +268,15 @@ class CuboidSelfAttention(nn.Module):
         q = q * jnp.float32(self.input_channels // self.attention_heads) ** -.5  # scale q
         attention_score = q @ jnp.matrix_transpose(k)
 
-        #TODO: relative positional bias
         if self.use_relative_position:
-            pass
+            relative_position_bias = self.relative_position_bias_table[
+                jnp.int32(self.relative_position_index[:cuboid_volume, :cuboid_volume])
+            ].reshape(cuboid_volume, cuboid_volume, -1)
+            relative_position_bias = rearrange(relative_position_bias, 'cv1 cv2 heads -> heads 1 cv1 cv2')
+            attention_score += relative_position_bias
 
-        #TODO: masked softmax
-        attention_score = nn.softmax(attention_score)
+        # attention_score = nn.softmax(attention_score)
+        attention_score = self.masked_softmax(attention_score, attention_mask)
         #print('before drop', attention_score.shape)
         attention_score = self.attention_dropout(attention_score, train)
         #print('before v', attention_score.shape)
@@ -232,7 +287,6 @@ class CuboidSelfAttention(nn.Module):
 
         if self.use_final_projector:
             x_reordered = self.final_projector(x_reordered, train)
-
 
         x_output = self._reverse_cuboid_reorder(x_reordered, self.cuboid_size, self.strategy,
                                                 (t + pad_t, h + pad_h, w + pad_w))
@@ -251,6 +305,6 @@ class CuboidSelfAttention(nn.Module):
 #rngs = {'params': jax.random.PRNGKey(0), 'dropout': jax.random.PRNGKey(1), 'constants': jax.random.PRNGKey(2)}
 #print(CuboidSelfAttention(input_channels=256,
 #                          attention_heads=4).tabulate(rngs,
-#                    jnp.zeros((10, 5, 16, 16, 256)), False,
+#                                                      jnp.zeros((10, 5, 16, 16, 256)), False,
 #                                                      console_kwargs={'width': 150}, compute_flops=True
-#))
+#                                                      ))

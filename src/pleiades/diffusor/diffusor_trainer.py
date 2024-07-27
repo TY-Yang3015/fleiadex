@@ -50,8 +50,10 @@ class Trainer:
 
         # optimiser with exponential moving average
         self.optimiser = self._get_optimiser(self.config)
-        self.optimiser = optax.chain(self.optimiser,
-                                     optax.ema(0.99))
+        self.optimiser = optax.chain(
+            optax.ema(0.99),
+            self.optimiser,
+        )
 
         # indicator of vae availability
         self.__vae_ready__ = False
@@ -128,7 +130,7 @@ class Trainer:
 
         return batch
 
-    @partial(jit, static_argnames='self')
+    # @partial(jax.jit, static_argnames=('self',))
     def _train_step(self, state, batch):
 
         def loss_fn(params):
@@ -143,6 +145,8 @@ class Trainer:
             return mse_loss
 
         grads = jax.grad(loss_fn)(state.params)
+        #updates, state = self.optimiser.update(grads, state, state.params)
+        #state.params = optax.apply_updates(state.params, updates)
         state = state.apply_gradients(grads=grads)
 
         return state
@@ -183,7 +187,6 @@ class Trainer:
             key=self.dropout_rng
         )
 
-
         restored = mngr.restore(mngr.latest_step(),
                                 args=ocp.args.Composite(
                                     vae_state=ocp.args.StandardRestore(vae_state)
@@ -195,7 +198,7 @@ class Trainer:
         self.vae = restored
         del mngr
 
-    @partial(jit, static_argnames='self')
+    # @partial(jax.jit, static_argnums=0)
     def _evaluate(self, params, consts, test_batch):
 
         def compute_metric(pred, true) -> dict[str, jnp.ndarray]:
@@ -212,11 +215,11 @@ class Trainer:
             predictions = self.vae.apply_fn({'params': self.vae.params},
                                             predictions, method='decode')
 
-            pred, true = self.diffusor.apply({'params': params, 'constants': consts},
-                                             test_batch, self.eval_rng, False,
-                                             rngs={'dropout': self.dropout_rng,
-                                                   'constants': self.const_rng}
-                                             )
+            pred, true = diffusor.apply({'params': params, 'constants': consts},
+                                        test_batch, self.eval_rng, False,
+                                        rngs={'dropout': self.dropout_rng,
+                                              'constants': self.const_rng}
+                                        )
 
             metrics = compute_metric(pred, true)
             return metrics, predictions

@@ -3,22 +3,14 @@ import jax.numpy as jnp
 import jax
 
 
-class DDPMManager:
+class DDPMManager(nn.Module):
+    timestep: int = 1000,
+    beta_start: float = 1e-4,
+    beta_end: float = 0.02,
+    clip_min: float = 0,
+    clip_max: float = 1.
 
-    def __init__(self,
-                 timestep: int = 1000,
-                 beta_start: float = 1e-4,
-                 beta_end: float = 0.02,
-                 clip_min: float = 0,
-                 clip_max: float = 1.
-                 ):
-
-        self.timestep = timestep
-        self.beta_start = beta_start
-        self.beta_end = beta_end
-        self.clip_min = clip_min
-        self.clip_max = clip_max
-
+    def setup(self) -> None:
         self.betas = jnp.linspace(self.beta_start, self.beta_end, self.timestep)
 
         self.alphas = 1. - self.betas
@@ -43,7 +35,6 @@ class DDPMManager:
         self.key = jax.random.PRNGKey(0)
 
     def q_mean_var(self, x_start, t):
-        t = jnp.int32(t)
         mean = self.sqrt_alphas_cumprod[t] * x_start
         var = 1. - self.alpha_cumprod[t]
         log_var = self.log_one_minus_alphas_cumprod[t]
@@ -51,7 +42,6 @@ class DDPMManager:
         return mean, var, log_var
 
     def q_sample(self, x_start, t, noise):
-        t = jnp.int32(t)
         return (self.sqrt_alphas_cumprod[t] * x_start +
                 self.sqrt_one_minus_alphas_cumprod[t] * noise)
 
@@ -83,7 +73,6 @@ class DDPMManager:
     def p_sample(self, pred_noise, x, t, clip_denoised=True):
         model_mean, _, model_log_var = self.p_mean_var(pred_noise, x, t, clip_denoised)
 
-        self.key, _ = jax.random.split(self.key)
         noise = jax.random.normal(self.key, x.shape)
 
         nonzero_mask = 1 - jnp.equal(t, 0)

@@ -41,23 +41,23 @@ class EarthformerUNet(nn.Module):
     time_embedding_dropout_rate: float = 0.
 
     def setup(self) -> None:
-        self.current_shape = jnp.array([self.sample_input_shape[0] + self.cond_input_shape[0],
-                                        self.sample_input_shape[1],
-                                        self.sample_input_shape[2],
-                                        self.sample_input_shape[3]])
+        # self.current_shape = jnp.array([self.sample_input_shape[0] + self.cond_input_shape[0],
+        #                               self.sample_input_shape[1],
+        #                                self.sample_input_shape[2],
+        #                                self.sample_input_shape[3]])
 
         self.observational_mask = ObservationalMask(
             input_length=self.cond_input_shape[0]
         )
 
-        self.current_shape = self.current_shape.at[-1].set(self.current_shape[-1] + 1)
+        # self.current_shape = self.current_shape.at[-1].set(self.current_shape[-1] + 1)
 
         self.first_projection = Projector(
             drop_rate=self.projection_dropout,
             output_channels=self.base_units,
         )
 
-        self.current_shape = self.current_shape.at[-1].set(self.base_units)
+        # self.current_shape = self.current_shape.at[-1].set(self.base_units)
 
         self.positional_embedding = PositionalEmbedding(
             input_shape=(self.sample_input_shape[0] + self.cond_input_shape[0],
@@ -106,10 +106,10 @@ class EarthformerUNet(nn.Module):
             output_channels=self.base_units * (self.spatial_downsample_factor ** 2)
         )
 
-        self.current_shape = self.current_shape.at[1].set(self.current_shape[1] / self.spatial_downsample_factor)
-        self.current_shape = self.current_shape.at[2].set(self.current_shape[2] / self.spatial_downsample_factor)
-        self.current_shape = self.current_shape.at[-1].set(
-            self.current_shape[-1] * (self.spatial_downsample_factor ** 2))
+        # self.current_shape = self.current_shape.at[1].set(self.current_shape[1] / self.spatial_downsample_factor)
+        # self.current_shape = self.current_shape.at[2].set(self.current_shape[2] / self.spatial_downsample_factor)
+        # self.current_shape = self.current_shape.at[-1].set(
+        #    self.current_shape[-1] * (self.spatial_downsample_factor ** 2))
 
         # bottleneck attention loops
         self.bottleneck_attention_blocks = [[
@@ -147,10 +147,10 @@ class EarthformerUNet(nn.Module):
                          self.sample_input_shape[2])
         )
 
-        self.current_shape = self.current_shape.at[1].set(self.current_shape[1] * self.spatial_downsample_factor)
-        self.current_shape = self.current_shape.at[2].set(self.current_shape[2] * self.spatial_downsample_factor)
-        self.current_shape = self.current_shape.at[-1].set(
-            self.current_shape[-1] / (self.spatial_downsample_factor ** 2))
+        # self.current_shape = self.current_shape.at[1].set(self.current_shape[1] * self.spatial_downsample_factor)
+        # self.current_shape = self.current_shape.at[2].set(self.current_shape[2] * self.spatial_downsample_factor)
+        # self.current_shape = self.current_shape.at[-1].set(
+        #    self.current_shape[-1] / (self.spatial_downsample_factor ** 2))
 
         # output attention loop
         self.output_attention_blocks = [[
@@ -180,7 +180,7 @@ class EarthformerUNet(nn.Module):
 
         self.final_projection = nn.Dense(self.cond_input_shape[-1])
 
-        self.current_shape = self.current_shape.at[-1].set(self.cond_input_shape[-1])
+        # self.current_shape = self.current_shape.at[-1].set(self.cond_input_shape[-1])
 
     def __call__(self, x: jnp.ndarray, cond: jnp.ndarray, t: jnp.ndarray, train: bool) -> jnp.ndarray:
 
@@ -225,6 +225,6 @@ class EarthformerUNet(nn.Module):
         return x
 
 
-print(EarthformerUNet((5, 16, 16, 4), (5, 16, 16, 4), 256)
-      .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros(10),
-                False, depth=1, console_kwargs={'width': 150}))
+#print(EarthformerUNet((5, 16, 16, 4), (5, 16, 16, 4), 256)
+#      .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros(10),
+#                False, depth=1, console_kwargs={'width': 150}))
