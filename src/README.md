@@ -1,4 +1,4 @@
-# Module Structure
+# Module Structure of `pleiades`
 
 This README file should give you a overview of the project structure. 
 
