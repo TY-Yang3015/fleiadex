@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class DataSpec:
+    pre_encoded: bool = False
     image_size: int = 128
     image_channels: int = 4
     clip_min: float = 0.

@@ -4,6 +4,12 @@ import jax
 
 
 class SelfAttention(nn.Module):
+    """
+    This is a light wrapper around `nn.MultiheadAttention` with a GroupNorm and an output projection.
+
+    :cvar output_channels: number of projected output channels.
+
+    """
     output_channels: int
     group: int = 32
     attention_heads: int = 4

@@ -109,6 +109,21 @@ class Trainer:
 
         return batch
 
+    def _get_next_train_batch_pre_encoded(self):
+        single = next(self.train_ds)
+        if len(single) != self.temporal_length:
+            single = next(self.train_ds)
+        batch = jnp.expand_dims(single, 0)
+
+        for _ in range(self.config['hyperparams']['batch_size'] - 1):
+            single = next(self.train_ds)
+            if len(single) != self.temporal_length:
+                single = next(self.train_ds)
+            single = jnp.expand_dims(single, 0)
+            batch = jnp.append(batch, single, axis=0)
+
+        return batch
+
     def _get_next_test_batch(self):
         single = next(self.test_ds)
         if len(single) != self.temporal_length:
@@ -125,6 +140,21 @@ class Trainer:
             single = self.vae.apply_fn({'params': self.vae.params},
                                        single, self.eval_rng,
                                        rngs={'dropout': self.dropout_rng}, method='encode')
+            single = jnp.expand_dims(single, 0)
+            batch = jnp.append(batch, single, axis=0)
+
+        return batch
+
+    def _get_next_test_batch_pre_coded(self):
+        single = next(self.test_ds)
+        if len(single) != self.temporal_length:
+            single = next(self.test_ds)
+        batch = jnp.expand_dims(single, 0)
+
+        for _ in range(self.config['hyperparams']['batch_size'] - 1):
+            single = next(self.test_ds)
+            if len(single) != self.temporal_length:
+                single = next(self.test_ds)
             single = jnp.expand_dims(single, 0)
             batch = jnp.append(batch, single, axis=0)
 
@@ -205,9 +235,8 @@ class Trainer:
             mse_loss = mse(pred, true).mean()
             return {'mse': mse_loss, 'loss': mse_loss}
 
-        def evaluate(diffusor):
-
-            predictions = diffusor.generate_prediction(test_batch[:, :self.config['data_spec']['condition_length']],
+        def evaluate(diffuser):
+            predictions = diffuser.generate_prediction(test_batch[:, :self.config['data_spec']['condition_length']],
                                                        self.eval_rng)
 
             predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], predictions],
@@ -217,13 +246,29 @@ class Trainer:
             predictions = self.vae.apply_fn({'params': self.vae.params},
                                             predictions, method='decode')
 
-            # predictions = predictions.reshape(self.config['hyperparams']['batch_size'], self.temporal_length,
-            #                                  predictions.shape[2], predictions.shape[3],
-            #                                  predictions.shape[4])
+            pred, true = diffuser.apply({'params': params, 'constants': consts},
+                                        test_batch, self.eval_rng, False,
+                                        rngs={'dropout': self.dropout_rng,
+                                              'constants': self.const_rng}
+                                        )
 
-            # predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
+            metrics = compute_metric(pred, true)
+            return metrics, predictions
 
-            pred, true = diffusor.apply({'params': params, 'constants': consts},
+        return nn.apply(evaluate, self.diffusor)({'params': params, 'constants': consts},
+                                                 rngs={'dropout': self.dropout_rng,
+                                                       'constants': self.const_rng})
+
+    # @partial(jax.jit, static_argnums=0)
+    def _evaluate_pre_encoded(self, params, consts, test_batch):
+        def compute_metric(pred, true) -> dict[str, jnp.ndarray]:
+            mse_loss = mse(pred, true).mean()
+            return {'mse': mse_loss, 'loss': mse_loss}
+
+        def evaluate(diffuser):
+            predictions = None
+
+            pred, true = diffuser.apply({'params': params, 'constants': consts},
                                         test_batch, self.eval_rng, False,
                                         rngs={'dropout': self.dropout_rng,
                                               'constants': self.const_rng}
@@ -250,68 +295,133 @@ class Trainer:
         os.makedirs(directory)
 
     def train(self):
-        if self.__vae_ready__ is False:
-            raise ValueError('vae is not loaded. please run load_vae_from() method first.')
+        if self.config['data_spec']['pre_encoded'] is True:
+            if self.__vae_ready__ is True:
+                logging.warning('since the data is pre-encoded, the loaded VAE will be ignored.')
+                del self.vae
+            logging.warning('visualisation will be disabled.')
 
-        logging.info('initializing model.')
-        init_data = jnp.ones((self.config['hyperparams']['batch_size'],
-                              self.temporal_length,
-                              self.config['nn_spec']['sample_input_shape'][1],
-                              self.config['nn_spec']['sample_input_shape'][2],
-                              self.config['nn_spec']['sample_input_shape'][3]),
-                             jnp.float32)
+            logging.info('initializing model.')
+            init_data = jnp.ones((self.config['hyperparams']['batch_size'],
+                                  self.temporal_length,
+                                  self.config['nn_spec']['sample_input_shape'][1],
+                                  self.config['nn_spec']['sample_input_shape'][2],
+                                  self.config['nn_spec']['sample_input_shape'][3]),
+                                 jnp.float32)
 
-        rngs = {'params': random.PRNGKey(0), 'dropout': random.PRNGKey(42),
-                'constants': self.const_rng}
-        collections = self.diffusor.init(rngs, init_data, self.train_rng, False)
-        params = collections['params']
-        consts = collections['constants']
+            rngs = {'params': random.PRNGKey(0), 'dropout': random.PRNGKey(42),
+                    'constants': self.const_rng}
+            collections = self.diffusor.init(rngs, init_data, self.train_rng, False)
+            params = collections['params']
+            consts = collections['constants']
 
-        state = DiffusorTrainState.create(
-            apply_fn=self.diffusor.apply,
-            params=params,
-            tx=self.optimiser,
-            key=self.dropout_rng,
-            consts=consts
-        )
-
-        save_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/ckpt'))
-        save_options = ocp.CheckpointManagerOptions(max_to_keep=5,
-                                                    save_interval_steps=self.config['hyperparams']['ckpt_freq'],
-                                                    )
-
-        if self.config['hyperparams']['save_ckpt']:
-            diffusor_mngr = ocp.CheckpointManager(
-                save_path, options=save_options, item_names=('diffusor_state', 'config')
+            state = DiffusorTrainState.create(
+                apply_fn=self.diffusor.apply,
+                params=params,
+                tx=self.optimiser,
+                key=self.dropout_rng,
+                consts=consts
             )
 
-        for step in range(1, self.config['hyperparams']['step'] + 1):
-
-            batch = self._get_next_train_batch()
-            self._update_train_rng()
-
-            state = self._train_step(state, batch)
+            save_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/ckpt'))
+            save_options = ocp.CheckpointManagerOptions(max_to_keep=5,
+                                                        save_interval_steps=self.config['hyperparams']['ckpt_freq'],
+                                                        )
 
             if self.config['hyperparams']['save_ckpt']:
-                diffusor_mngr.save(step, args=ocp.args.Composite(
-                    diffusor_state=ocp.args.StandardSave(state),
-                    config=ocp.args.JsonSave(self.config.unfreeze())
-                ))
-
-            current_test = self._get_next_test_batch()
-
-            metrics, prediction = self._evaluate(
-                state.params, state.consts, current_test)
-
-            self._save_output(self.save_dir, prediction, step)
-
-            if (step % 1000 == 0) and (step != 0):
-                self._clear_result()
-
-            logging.info(
-                'step: {}, loss: {:.4f}, mse: {:.4f}'.format(
-                    step + 1, metrics['loss'], metrics['mse']
+                diffusor_mngr = ocp.CheckpointManager(
+                    save_path, options=save_options, item_names=('diffusor_state', 'config')
                 )
+
+            for step in range(1, self.config['hyperparams']['step'] + 1):
+
+                batch = self._get_next_train_batch_pre_encoded()
+                self._update_train_rng()
+
+                state = self._train_step(state, batch)
+
+                if self.config['hyperparams']['save_ckpt']:
+                    diffusor_mngr.save(step, args=ocp.args.Composite(
+                        diffusor_state=ocp.args.StandardSave(state),
+                        config=ocp.args.JsonSave(self.config.unfreeze())
+                    ))
+
+                current_test = self._get_next_test_batch_pre_coded()
+
+                metrics, prediction = self._evaluate_pre_encoded(
+                    state.params, state.consts, current_test)
+
+                logging.info(
+                    'step: {}, loss: {:.4f}, mse: {:.4f}'.format(
+                        step + 1, metrics['loss'], metrics['mse']
+                    )
+                )
+
+            diffusor_mngr.wait_until_finished()
+
+        else:
+            if self.__vae_ready__ is False:
+                raise ValueError('vae is not loaded. please run load_vae_from() method first.')
+
+            logging.info('initializing model.')
+            init_data = jnp.ones((self.config['hyperparams']['batch_size'],
+                                  self.temporal_length,
+                                  self.config['nn_spec']['sample_input_shape'][1],
+                                  self.config['nn_spec']['sample_input_shape'][2],
+                                  self.config['nn_spec']['sample_input_shape'][3]),
+                                 jnp.float32)
+
+            rngs = {'params': random.PRNGKey(0), 'dropout': random.PRNGKey(42),
+                    'constants': self.const_rng}
+            collections = self.diffusor.init(rngs, init_data, self.train_rng, False)
+            params = collections['params']
+            consts = collections['constants']
+
+            state = DiffusorTrainState.create(
+                apply_fn=self.diffusor.apply,
+                params=params,
+                tx=self.optimiser,
+                key=self.dropout_rng,
+                consts=consts
             )
 
-        diffusor_mngr.wait_until_finished()
+            save_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/ckpt'))
+            save_options = ocp.CheckpointManagerOptions(max_to_keep=5,
+                                                        save_interval_steps=self.config['hyperparams']['ckpt_freq'],
+                                                        )
+
+            if self.config['hyperparams']['save_ckpt']:
+                diffusor_mngr = ocp.CheckpointManager(
+                    save_path, options=save_options, item_names=('diffusor_state', 'config')
+                )
+
+            for step in range(1, self.config['hyperparams']['step'] + 1):
+
+                batch = self._get_next_train_batch()
+                self._update_train_rng()
+
+                state = self._train_step(state, batch)
+
+                if self.config['hyperparams']['save_ckpt']:
+                    diffusor_mngr.save(step, args=ocp.args.Composite(
+                        diffusor_state=ocp.args.StandardSave(state),
+                        config=ocp.args.JsonSave(self.config.unfreeze())
+                    ))
+
+                current_test = self._get_next_test_batch()
+
+                metrics, prediction = self._evaluate(
+                    state.params, state.consts, current_test)
+
+                self._save_output(self.save_dir, prediction, step)
+
+                if (step % 1000 == 0) and (step != 0):
+                    self._clear_result()
+
+                logging.info(
+                    'step: {}, loss: {:.4f}, mse: {:.4f}'.format(
+                        step + 1, metrics['loss'], metrics['mse']
+                    )
+                )
+
+            diffusor_mngr.wait_until_finished()
