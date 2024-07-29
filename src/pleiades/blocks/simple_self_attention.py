@@ -5,7 +5,7 @@ import jax
 
 class SelfAttention(nn.Module):
     """
-    This is a light wrapper around `flax.linen.MultiheadAttention` with a GroupNorm and an output projection.
+    This is a light wrapper around `flax.linen.MultiHeadDotProductAttention` with a GroupNorm and an output projection.
 
     :cvar output_channels: number of projected output channels.
     :cvar group: number of groups used for GroupNorm.
