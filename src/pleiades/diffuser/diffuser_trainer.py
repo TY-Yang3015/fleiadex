@@ -20,7 +20,7 @@ from omegaconf import OmegaConf
 import src.pleiades.vae.src.vae as models
 from src.pleiades.utils import (load_dataset_for_diffusion, save_image, mse,
                                 TrainStateWithDropout, DiffusorTrainState)
-from src.pleiades.diffusor.ddpm_core import DDPMCore
+from src.pleiades.diffuser.ddpm_core import DDPMCore
 from config.ldm_config import LDMConfig
 
 

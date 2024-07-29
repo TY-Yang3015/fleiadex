@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import jax
 from flax.core import FrozenDict
 
-from src.pleiades.diffusor.ddpm_utils import DDPMManager
+from src.pleiades.diffuser.ddpm_utils import DDPMManager
 from src.pleiades.transformer.src.earthformer_unet import EarthformerUNet
 
 
