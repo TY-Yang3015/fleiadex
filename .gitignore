@@ -1,10 +1,9 @@
 literature/
 legacy/
-data/
+data
 src/pleiades/exp_data
-__pycache__*
+__pycache__
 *.
 outputs*
 *.idea
 *.DS_Store
-notebooks
