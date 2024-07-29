@@ -24,3 +24,9 @@ if you encountered any particular issue with the specific version of your OS.
 There are known issues with the auto-installed nvidia driver libs, especially some `cuda` components. Usually this can be solved by
 updating `cuda`. 
 
+## Change Hyperparameters
+
+All config files are contained in the `config` module. Change the hyperparameters there can modify the most customisable 
+features of the diffuser/vae. **Except the architecture of the backbone transformer**, see the `README.md` file in the
+`src` folder. 
+
