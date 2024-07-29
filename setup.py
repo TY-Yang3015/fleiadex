@@ -4,16 +4,14 @@ VERSION = '0.0.1'
 
 requirements = [
     'tensorflow',
-    'jax',
+    'jax[cuda12]',  # change this if you wish to run on CPU/TPU.
     'jaxlib',
-    'numpy',
     'pillow',
-    'numpy',
     'hydra-core',
-    'omegaconf',
     'optax',
     'flax',
-    'einops'
+    'einops',
+    'clu'
 ]
 
 setup(
