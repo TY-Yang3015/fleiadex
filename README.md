@@ -8,7 +8,7 @@ The training scripts are contained in the `training_scripts` folder, where shoul
 The entry functions are contained in the `main.py` files. For training the VAE and using it for the latent diffuser, just run `main.py`. 
 
 As a feature of `hydra` (see Hydra doc [here](https://hydra.cc/docs/intro/)), as you run the script, all training results,
-checkpoints and config settings will be saved in a separate (auto-created if not already) `output` folder.
+checkpoints and config settings will be saved in a separate (auto-created if not already) `outputs` folder.
 
 The functions for independent usage of the VAE and diffuser will be updated soon.
 
