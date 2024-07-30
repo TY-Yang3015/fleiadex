@@ -200,7 +200,7 @@ class Trainer:
             disc_loss = disc_loss * self.config['hyperparams']['disc_weight']
             mse_loss = mse(recon_x, x).mean()
             kld_loss = kl_divergence(mean, logvar).mean() * self.config['hyperparams']['kld_weight']
-            return {'sae': mse_loss, 'kld': kld_loss, 'disc_loss': disc_loss,
+            return {'mse': mse_loss, 'kld': kld_loss, 'disc_loss': disc_loss,
                     'loss': disc_loss + mse_loss + kld_loss}
 
         def evaluate_vae(vae, train):
@@ -229,7 +229,7 @@ class Trainer:
                                , logvar: jnp.ndarray) -> dict[str, jnp.ndarray]:
             mse_loss = mse(recon_x, x).mean()
             kld_loss = kl_divergence(mean, logvar).mean() * self.config['hyperparams']['kld_weight']
-            return {'sae': mse_loss, 'kld': kld_loss, 'disc_loss': None,
+            return {'mse': mse_loss, 'kld': kld_loss, 'disc_loss': None,
                     'loss': mse_loss + kld_loss}
 
         def evaluate_vae(vae, train):
@@ -286,7 +286,7 @@ class Trainer:
         shutil.rmtree(directory)
         os.makedirs(directory)
 
-    def load_vae_from(self, ckpt_dir, step=None):
+    def load_vae_from(self, ckpt_dir, load_config=True, step=None):
         logging.info('loading vae from %s', ckpt_dir)
 
         if isinstance(ckpt_dir, str):
@@ -299,18 +299,23 @@ class Trainer:
             ckpt_dir, item_names=('vae_state', 'config')
         )
 
-        if step:
-            restored_config = mngr.restore(step,
-                                           args=ocp.args.Composite(
-                                               config=ocp.args.JsonRestore()
-                                           ))
-        else:
-            restored_config = mngr.restore(mngr.latest_step(),
-                                           args=ocp.args.Composite(
-                                               config=ocp.args.JsonRestore()
-                                           ))
+        if load_config:
+            if step:
+                restored_config = mngr.restore(step,
+                                               args=ocp.args.Composite(
+                                                   config=ocp.args.JsonRestore()
+                                               ))
+            else:
+                restored_config = mngr.restore(mngr.latest_step(),
+                                               args=ocp.args.Composite(
+                                                   config=ocp.args.JsonRestore()
+                                               ))
 
-        self.config = FrozenDict(restored_config['config'])
+
+            self.config = FrozenDict(restored_config['config'])
+        else:
+            logging.warning('not loading config may lead to unexpected behaviour.')
+
         self.vae = models.VAE(**self.config['nn_spec'])
 
         init_data = jnp.ones((self.config['hyperparams']['batch_size'],
@@ -431,6 +436,8 @@ class Trainer:
         for step in range(1, self.config['hyperparams']['step'] + 1):
 
             batch = next(self.train_ds)
+            if len(batch) != self.config['hyperparams']['batch_size']:
+                batch = next(self.train_ds)
             self._update_train_rng()
 
             if step > self.config['hyperparams']['discriminator_start_after']:
@@ -449,6 +456,8 @@ class Trainer:
                     disc_mngr.save(step, args=ocp.args.StandardSave(discriminator_state))
 
             current_test_ds = next(self.test_ds)
+            if len(current_test_ds) != self.config['hyperparams']['batch_size']:
+                current_test_ds = next(self.test_ds)
 
             if step > self.config['hyperparams']['discriminator_start_after']:
                 vae_metrics, comparison, sample = self._evaluate_vae(
@@ -470,8 +479,8 @@ class Trainer:
 
             if step > self.config['hyperparams']['discriminator_start_after']:
                 logging.info(
-                    'step: {}, loss: {:.4f}, sae: {:.4f}, kld: {:.4f}, disc: {:.4f}'.format(
-                        step + 1, vae_metrics['loss'], vae_metrics['sae'], vae_metrics['kld'],
+                    'step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}, disc: {:.4f}'.format(
+                        step + 1, vae_metrics['loss'], vae_metrics['mse'], vae_metrics['kld'],
                         vae_metrics['disc_loss']
                     )
                 )
@@ -479,14 +488,14 @@ class Trainer:
                 logging.info('discriminator loss: {:.4f}'.format(discriminator_metric['loss']))
             else:
                 logging.info(
-                    'step: {}, loss: {:.4f}, sae: {:.4f}, kld: {:.4f}'.format(
-                        step + 1, vae_metrics['loss'], vae_metrics['sae'], vae_metrics['kld']
+                    'step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}'.format(
+                        step + 1, vae_metrics['loss'], vae_metrics['mse'], vae_metrics['kld']
                     )
                 )
 
             if auxiliary_metric:
                 logging.info('auxiliary SSIM: {:.4f}'.format(ssim(comparison[:self.config['hyperparams']['batch_size']],
                                                                   comparison[self.config['hyperparams']['batch_size']:],
-                                                                  self.config).mean()))
+                                                                  self.config)))
 
         vae_mngr.wait_until_finished()

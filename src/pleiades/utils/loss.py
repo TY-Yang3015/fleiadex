@@ -32,7 +32,7 @@ def discriminator_loss(fake_judgement, origin_judgement):
     return jnp.mean(loss)
 
 
-@jax.vmap
+
 def ssim(origin, generated, config):
-    return tf.image.ssim(origin, generated,
-                         max_val=jnp.abs(config["data_spec"]["clip_max"] - config["data_spec"]["clip_min"]))
+    return tf.reduce_mean(tf.image.ssim(origin, generated,
+                         max_val=jnp.abs(config["data_spec"]["clip_max"] - config["data_spec"]["clip_min"])))
