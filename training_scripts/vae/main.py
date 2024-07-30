@@ -28,7 +28,7 @@ def execute(config: VAEConfig) -> None:
     trainer = train.Trainer(config)
     #trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
     #                      "2024-07-26/19-24-19/results/vae_ckpt")
-    trainer.train()
+    trainer.train(auxiliary_metric=True)
 
 
 def main(argv):

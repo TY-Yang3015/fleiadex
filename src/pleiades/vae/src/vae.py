@@ -91,7 +91,7 @@ class VAE(nn.Module):
         return self.decoder(z, train=False)
 
     def _reparameterise(self, rng: jnp.ndarray, mean: jnp.ndarray,
-                       logvar: jnp.ndarray) -> jnp.ndarray:
+                        logvar: jnp.ndarray) -> jnp.ndarray:
         """
 
         the reparameterisation trick. use the equation mean + (epsilon + log(0.5 * log_var)).
@@ -116,10 +116,8 @@ class VAE(nn.Module):
         return recon_x
 
 
-
-#print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
-#                    jax.random.PRNGKey(1), False))
-
+# print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
+#                   jax.random.PRNGKey(1), False, console_kwargs={'width': 300}, depth=1))
 
 
 def get_vae_instance(config: flax.core.FrozenDict) -> VAE:

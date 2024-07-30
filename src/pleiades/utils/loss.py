@@ -1,11 +1,13 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+import tensorflow as tf
 
 
 @jax.vmap
 def sse(epsilon_true, epsilon_pred):
     return jnp.sum(jnp.square(epsilon_true - epsilon_pred))
+
 
 @jax.vmap
 def mse(epsilon_true, epsilon_pred):
@@ -28,3 +30,9 @@ def binary_cross_entropy_with_logits(logits, labels):
 def discriminator_loss(fake_judgement, origin_judgement):
     loss = -jnp.log(origin_judgement) - jnp.log(1 - fake_judgement)
     return jnp.mean(loss)
+
+
+@jax.vmap
+def ssim(origin, generated, config):
+    return tf.image.ssim(origin, generated,
+                         max_val=jnp.abs(config["data_spec"]["clip_max"] - config["data_spec"]["clip_min"]))

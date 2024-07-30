@@ -18,7 +18,7 @@ from omegaconf import OmegaConf
 
 import src.pleiades.vae.src.vae as models
 from src.pleiades.utils import (load_dataset, save_image,
-                                mse, kl_divergence, discriminator_loss,
+                                mse, kl_divergence, ssim, discriminator_loss,
                                 TrainStateWithDropout, TrainStateWithBatchStats)
 from src.pleiades.vae.src.discriminator import Discriminator
 from config.vae_config import VAEConfig
@@ -374,7 +374,7 @@ class Trainer:
 
         del mngr
 
-    def train(self):
+    def train(self, auxiliary_metric=False):
         logging.info('initializing model.')
         init_data = jnp.ones((self.config['hyperparams']['batch_size'],
                               self.config['data_spec']['image_size'],
@@ -483,5 +483,10 @@ class Trainer:
                         step + 1, vae_metrics['loss'], vae_metrics['sae'], vae_metrics['kld']
                     )
                 )
+
+            if auxiliary_metric:
+                logging.info('auxiliary SSIM: {:.4f}'.format(ssim(comparison[:self.config['hyperparams']['batch_size']],
+                                                                  comparison[self.config['hyperparams']['batch_size']:],
+                                                                  self.config).mean()))
 
         vae_mngr.wait_until_finished()

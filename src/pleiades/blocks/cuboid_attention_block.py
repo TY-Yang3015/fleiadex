@@ -82,7 +82,7 @@ class CuboidAttentionBlock(nn.Module):
                     input_channels=self.input_channels,
                     hidden_size=self.input_channels * 4,
                     activation=self.ffn_activation,
-                    activation_dropout=self.ffn_dropout,
+                   activation_dropout=self.ffn_dropout,
                     dropout=self.ffn_dropout
                 )]
 
