@@ -6,9 +6,9 @@ class Hyperparams:
     learning_rate: float | str = "optax.cosine_decay_schedule(1e-4, 80000, 1e-7)"
     batch_size: int = 7
     step: int = 100000
-    kld_weight: float = 1e-3
+    kld_weight: float = 1e-2
     disc_weight: float = 1e-3
-    discriminator_start_after: int = 2000
+    discriminator_start_after: int = 10000
 
     save_ckpt: bool = True
     save_discriminator: bool = True

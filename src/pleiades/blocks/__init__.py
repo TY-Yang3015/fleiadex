@@ -12,3 +12,4 @@ from src.pleiades.blocks.resnet_block import ResNetBlock
 from src.pleiades.blocks.simple_self_attention import SelfAttention
 from src.pleiades.blocks.identity import Identity
 from src.pleiades.blocks.downsampler_with_batchnorm import DownSamplerBatchNorm
+from src.pleiades.blocks.multihead_attention import MultiHeadCrossAttention
