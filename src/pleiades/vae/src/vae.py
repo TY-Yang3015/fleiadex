@@ -15,22 +15,22 @@ class VAE(nn.Module):
     for the usage of parameters, please refer to ``pleiades.vae.encoder``
     and ``pleiades.vae.decoder``.
     """
-    encoder_spatial_downsample_schedule: tuple[int] = (2, 2)
+    encoder_spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
-    encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)
-    encoder_attention_heads: int = 4
+    encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
+    encoder_attention_heads: int = 1
     encoder_attention_use_qkv_bias: bool = False
     encoder_attention_use_dropout: bool = True
     encoder_attention_dropout_rate: float = 0.1
     encoder_post_attention_resnet_depth: int = 2
-    encoder_latents_channels: int = 3
+    encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
 
-    decoder_latent_channels: int = 3
-    decoder_spatial_upsample_schedule: tuple[int] = (2, 2)
+    decoder_latent_channels: int = 4
+    decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
-    decoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)
-    decoder_attention_heads: int = 4
+    decoder_resnet_depth_schedule: tuple[int] = (3, 3, 3)
+    decoder_attention_heads: int = 1
     decoder_attention_use_qkv_bias: bool = False
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.1
@@ -117,7 +117,7 @@ class VAE(nn.Module):
 
 
 # print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
-#                   jax.random.PRNGKey(1), False, console_kwargs={'width': 300}, depth=1))
+#                  jax.random.PRNGKey(1), False, console_kwargs={'width': 300}, depth=1))
 
 
 def get_vae_instance(config: flax.core.FrozenDict) -> VAE:

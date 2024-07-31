@@ -10,22 +10,26 @@ class Encoder(nn.Module):
 
     """
 
-    spatial_downsample_schedule: tuple[int] = (2, 2)
+    spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     channel_schedule: tuple[int] = (128, 256, 512)
-    resnet_depth_schedule: tuple[int] = (2, 2, 2)
+    resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
     attention_heads: int = 4
     attention_use_qkv_bias: bool = False
     attention_use_dropout: bool = True
     attention_dropout_rate: float = 0.1
     post_attention_resnet_depth: int = 2
-    latents_channels: int = 3
+    latents_channels: int = 4
     conv_kernel_sizes: tuple[int] = (3, 3)
 
     def setup(self) -> None:
 
-        if (len(self.channel_schedule) - len(self.spatial_downsample_schedule) != 1
-                or len(self.channel_schedule) != len(self.resnet_depth_schedule)):
-            raise ValueError()
+        if len(self.resnet_depth_schedule) - len(self.spatial_downsample_schedule) != 1:
+            raise ValueError('resnet depth schedule must be longer than downsampler schedule length'
+                             'by 1, of which is the depth of the resnet block after the last'
+                             'downsampler.')
+
+        if len(self.spatial_downsample_schedule) != len(self.channel_schedule):
+            raise ValueError("channel schedule length and downsampler schedule length must be equal.")
 
         self.conv_projection = nn.Conv(features=self.channel_schedule[0],
                                        kernel_size=self.conv_kernel_sizes,
@@ -35,7 +39,7 @@ class Encoder(nn.Module):
 
         resnet_block_lists = []
         downsampler_lists = []
-        for i in range(len(self.resnet_depth_schedule) - 1):
+        for i in range(len(self.spatial_downsample_schedule)):
             res_blocks = []
             res_blocks.append(ResNetBlock(
                 output_channels=self.channel_schedule[i],
@@ -51,7 +55,6 @@ class Encoder(nn.Module):
                         padding='SAME',
                         kernel_init=nn.initializers.kaiming_normal())
             )
-        downsampler_lists.append(Identity())
 
         res_blocks = []
         res_blocks.append(ResNetBlock(
@@ -105,6 +108,9 @@ class Encoder(nn.Module):
                 x = res_block(x)
             x = downsampler(x)
 
+        for res_block in self.resnet_block_lists[-1]:
+            x = res_block(x)
+
         x = self.attention(x, train)
         for block in self.final_res_blocks:
             x = block(x)
@@ -113,9 +119,10 @@ class Encoder(nn.Module):
         x = nn.silu(x)
         x = self.output_conv(x)
 
-        mean, logvar = x[..., :3], x[..., 3:]
+        mean, logvar = x[..., :self.latents_channels], x[..., self.latents_channels:]
 
         return mean, logvar
 
-# print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 64, 64, 1)), False,
-#                        depth=1, console_kwargs={'width': 150}))
+
+#print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 128, 128, 4)), False,
+#                         depth=1, console_kwargs={'width': 150}))

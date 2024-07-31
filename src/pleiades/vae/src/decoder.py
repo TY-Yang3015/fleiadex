@@ -7,9 +7,9 @@ from src.pleiades.blocks import (SelfAttention, ResNetBlock, Identity)
 
 class Decoder(nn.Module):
     latent_channels: int
-    spatial_upsample_schedule: tuple[int] = (2, 2)
+    spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     channel_schedule: tuple[int] = (512, 256, 128)
-    resnet_depth_schedule: tuple[int] = (2, 2, 2)
+    resnet_depth_schedule: tuple[int] = (3, 3, 3)
     attention_heads: int = 4
     attention_use_qkv_bias: bool = False
     attention_use_dropout: bool = True
@@ -20,9 +20,10 @@ class Decoder(nn.Module):
 
     def setup(self) -> None:
 
-        if (len(self.channel_schedule) - len(self.spatial_upsample_schedule) != 1
-                or len(self.channel_schedule) != len(self.resnet_depth_schedule)):
-            raise ValueError()
+        if not (len(self.channel_schedule) == len(self.spatial_upsample_schedule)
+                == len(self.resnet_depth_schedule)):
+            raise ValueError('number fo spatial upsamplers must be equal to the number of resnet blocks'
+                             'and channel schedule length.')
 
         self.conv_projection = nn.Sequential([
             nn.Conv(features=self.latent_channels,
@@ -47,7 +48,7 @@ class Decoder(nn.Module):
 
         resnet_block_lists = []
         upsampler_lists = []
-        for i in range(len(self.resnet_depth_schedule) - 1):
+        for i in range(len(self.spatial_upsample_schedule)):
             res_blocks = []
             res_blocks.append(ResNetBlock(
                 output_channels=self.channel_schedule[i],
@@ -63,15 +64,15 @@ class Decoder(nn.Module):
                                  padding='SAME',
                                  kernel_init=nn.initializers.kaiming_normal())
             )
-        upsampler_lists.append(Identity())
+        #upsampler_lists.append(Identity())
 
-        res_blocks = []
-        res_blocks.append(ResNetBlock(
-            output_channels=self.channel_schedule[-1]
-        ))
-        for _ in range(self.resnet_depth_schedule[-1] - 1):
-            res_blocks.append(ResNetBlock())
-        resnet_block_lists.append(res_blocks)
+        #res_blocks = []
+        #res_blocks.append(ResNetBlock(
+        #    output_channels=self.channel_schedule[-1]
+        #))
+        #for _ in range(self.resnet_depth_schedule[-1] - 1):
+        #    res_blocks.append(ResNetBlock())
+        #resnet_block_lists.append(res_blocks)
 
         self.resnet_block_lists = resnet_block_lists
         self.upsampler_lists = upsampler_lists
