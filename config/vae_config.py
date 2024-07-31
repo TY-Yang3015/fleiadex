@@ -30,9 +30,9 @@ class DataSpec:
 
 @dataclass
 class VAENNSpec:
-    encoder_spatial_downsample_schedule: tuple[int] = (2, 2)
+    encoder_spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
-    encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)
+    encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
     encoder_attention_heads: int = 1
     encoder_attention_use_qkv_bias: bool = True
     encoder_attention_use_dropout: bool = True
@@ -42,9 +42,9 @@ class VAENNSpec:
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
 
     decoder_latent_channels: int = 3
-    decoder_spatial_upsample_schedule: tuple[int] = (2, 2)
+    decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
-    decoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)
+    decoder_resnet_depth_schedule: tuple[int] = (3, 3, 3)
     decoder_attention_heads: int = 1
     decoder_attention_use_qkv_bias: bool = True
     decoder_attention_use_dropout: bool = True
