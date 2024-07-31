@@ -124,5 +124,5 @@ class Encoder(nn.Module):
         return mean, logvar
 
 
-#print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 128, 128, 4)), False,
+# print(Encoder().tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 128, 128, 4)), False,
 #                         depth=1, console_kwargs={'width': 150}))

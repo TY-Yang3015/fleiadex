@@ -38,10 +38,10 @@ class VAENNSpec:
     encoder_attention_use_dropout: bool = True
     encoder_attention_dropout_rate: float = 0.2
     encoder_post_attention_resnet_depth: int = 2
-    encoder_latents_channels: int = 3
+    encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
 
-    decoder_latent_channels: int = 3
+    decoder_latent_channels: int = 4
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
     decoder_resnet_depth_schedule: tuple[int] = (3, 3, 3)

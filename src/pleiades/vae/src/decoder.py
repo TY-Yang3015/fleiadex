@@ -117,5 +117,5 @@ class Decoder(nn.Module):
         return x
 
 
-#print(Decoder(3).tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 16, 16, 3)), False,
+# print(Decoder(3).tabulate(jax.random.PRNGKey(0), jnp.zeros((10, 16, 16, 3)), False,
 #                          depth=1, console_kwargs={'width': 150}))
