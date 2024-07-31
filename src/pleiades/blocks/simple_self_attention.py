@@ -1,7 +1,8 @@
 import flax.linen as nn
 import jax.numpy as jnp
 import jax
-
+from src.pleiades.blocks.memory_efficient_attention import MemoryEfficientAttention
+from einops import rearrange
 
 class SelfAttention(nn.Module):
     """
@@ -9,15 +10,14 @@ class SelfAttention(nn.Module):
 
     :cvar output_channels: number of projected output channels.
     :cvar group: number of groups used for GroupNorm.
-    :cvar attention_heads: number of attention heads.
     :cvar use_qkv_bias: whether to use bias in the QKV matrix.
     :cvar use_dropout: whether to use dropout in the attention layer.
     :cvar dropout_rate: dropout rate for the attention dropout, only used if use_dropout=True.
 
     """
     output_channels: int
+    use_memory_efficient_attention: bool = True
     group: int = 32
-    attention_heads: int = 4
     use_qkv_bias: bool = False
     use_dropout: bool = True
     dropout_rate: float = 0.1
@@ -26,14 +26,27 @@ class SelfAttention(nn.Module):
     def __call__(self, x: jnp.ndarray, train: bool) -> jnp.ndarray:
         x = nn.GroupNorm(num_groups=self.group if x.shape[-1] % self.group == 0 else x.shape[-1],
                          group_size=None)(x)
-        x = nn.MultiHeadDotProductAttention(
-            num_heads=self.attention_heads,
-            qkv_features=x.shape[-1],
-            out_features=self.output_channels,
-            dropout_rate=0 if self.use_dropout is False else self.dropout_rate,
-            deterministic=not train,
-            use_bias=self.use_qkv_bias
-        )(x)
+        shape = x.shape
+        x = rearrange(x, 'b w h c -> b (w h) c')
+
+        if self.use_memory_efficient_attention:
+            x = MemoryEfficientAttention(
+                query_dim=shape[-1],
+                heads=1,
+                dim_head=self.output_channels,
+                dropout=self.dropout_rate if self.use_dropout else 0.
+            )(x, deterministic=not train)
+        else:
+            x = nn.MultiHeadDotProductAttention(
+                num_heads=1,
+                qkv_features=shape[-1],
+                out_features=self.output_channels,
+                dropout_rate=0 if self.use_dropout is False else self.dropout_rate,
+                deterministic=not train,
+                use_bias=self.use_qkv_bias
+            )(x)
+
+        x = x.reshape(shape)
         x = nn.Dense(self.output_channels)(x)
         return x
 

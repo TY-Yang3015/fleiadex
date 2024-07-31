@@ -13,10 +13,10 @@ class Encoder(nn.Module):
     spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     channel_schedule: tuple[int] = (128, 256, 512)
     resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
-    attention_heads: int = 4
     attention_use_qkv_bias: bool = False
     attention_use_dropout: bool = True
     attention_dropout_rate: float = 0.1
+    use_memory_efficient_attention: bool = False
     post_attention_resnet_depth: int = 2
     latents_channels: int = 4
     conv_kernel_sizes: tuple[int] = (3, 3)
@@ -66,10 +66,10 @@ class Encoder(nn.Module):
 
         self.attention = SelfAttention(
             output_channels=self.channel_schedule[-1],
-            attention_heads=self.attention_heads,
             use_qkv_bias=self.attention_use_qkv_bias,
             use_dropout=self.attention_use_dropout,
             dropout_rate=self.attention_dropout_rate,
+            use_memory_efficient_attention=self.use_memory_efficient_attention,
         )
 
         self.resnet_block_lists = resnet_block_lists

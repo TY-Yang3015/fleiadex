@@ -10,10 +10,10 @@ class Decoder(nn.Module):
     spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     channel_schedule: tuple[int] = (512, 256, 128)
     resnet_depth_schedule: tuple[int] = (3, 3, 3)
-    attention_heads: int = 4
     attention_use_qkv_bias: bool = False
     attention_use_dropout: bool = True
     attention_dropout_rate: float = 0.1
+    use_memory_efficient_attention: bool = True
     pre_output_resnet_depth: int = 3
     reconstruction_channels: int = 4
     conv_kernel_sizes: tuple[int] = (3, 3)
@@ -40,10 +40,10 @@ class Decoder(nn.Module):
 
         self.attention = SelfAttention(
             output_channels=self.channel_schedule[0],
-            attention_heads=self.attention_heads,
             use_qkv_bias=self.attention_use_qkv_bias,
             use_dropout=self.attention_use_dropout,
             dropout_rate=self.attention_dropout_rate,
+            use_memory_efficient_attention=self.use_memory_efficient_attention
         )
 
         resnet_block_lists = []

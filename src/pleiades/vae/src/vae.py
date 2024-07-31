@@ -18,10 +18,10 @@ class VAE(nn.Module):
     encoder_spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
     encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
-    encoder_attention_heads: int = 1
     encoder_attention_use_qkv_bias: bool = False
     encoder_attention_use_dropout: bool = True
     encoder_attention_dropout_rate: float = 0.1
+    encoder_use_memory_efficient_attention: bool = False
     encoder_post_attention_resnet_depth: int = 2
     encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
@@ -30,10 +30,10 @@ class VAE(nn.Module):
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
     decoder_resnet_depth_schedule: tuple[int] = (3, 3, 3)
-    decoder_attention_heads: int = 1
     decoder_attention_use_qkv_bias: bool = False
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.1
+    decoder_use_memory_efficient_attention: bool = False
     decoder_pre_output_resnet_depth: int = 3
     decoder_reconstruction_channels: int = 4
     decoder_conv_kernel_sizes: tuple[int] = (3, 3)
@@ -43,10 +43,10 @@ class VAE(nn.Module):
             spatial_downsample_schedule=self.encoder_spatial_downsample_schedule,
             channel_schedule=self.encoder_channel_schedule,
             resnet_depth_schedule=self.encoder_resnet_depth_schedule,
-            attention_heads=self.encoder_attention_heads,
             attention_use_qkv_bias=self.encoder_attention_use_qkv_bias,
             attention_use_dropout=self.encoder_attention_use_dropout,
             attention_dropout_rate=self.encoder_attention_dropout_rate,
+            use_memory_efficient_attention=self.encoder_use_memory_efficient_attention,
             post_attention_resnet_depth=self.encoder_post_attention_resnet_depth,
             latents_channels=self.encoder_latents_channels,
             conv_kernel_sizes=self.encoder_conv_kernel_sizes
@@ -56,10 +56,10 @@ class VAE(nn.Module):
             spatial_upsample_schedule=self.decoder_spatial_upsample_schedule,
             channel_schedule=self.decoder_channel_schedule,
             resnet_depth_schedule=self.decoder_resnet_depth_schedule,
-            attention_heads=self.decoder_attention_heads,
             attention_use_qkv_bias=self.decoder_attention_use_qkv_bias,
             attention_use_dropout=self.decoder_attention_use_dropout,
             attention_dropout_rate=self.decoder_attention_dropout_rate,
+            use_memory_efficient_attention=self.decoder_use_memory_efficient_attention,
             pre_output_resnet_depth=self.decoder_pre_output_resnet_depth,
             reconstruction_channels=self.decoder_reconstruction_channels,
             conv_kernel_sizes=self.decoder_conv_kernel_sizes
