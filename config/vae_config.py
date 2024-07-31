@@ -6,9 +6,9 @@ class Hyperparams:
     learning_rate: float | str = "optax.cosine_decay_schedule(1e-4, 80000, 1e-7)"
     batch_size: int = 7
     step: int = 100000
-    kld_weight: float = 1e-3
+    kld_weight: float = 0
     disc_weight: float = 1e-3
-    discriminator_start_after: int = 20000
+    discriminator_start_after: int = 2000
 
     save_ckpt: bool = True
     save_discriminator: bool = True
@@ -33,7 +33,7 @@ class VAENNSpec:
     encoder_spatial_downsample_schedule: tuple[int] = (2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
     encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)
-    encoder_attention_heads: int = 4
+    encoder_attention_heads: int = 1
     encoder_attention_use_qkv_bias: bool = True
     encoder_attention_use_dropout: bool = True
     encoder_attention_dropout_rate: float = 0.2
@@ -45,7 +45,7 @@ class VAENNSpec:
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
     decoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)
-    decoder_attention_heads: int = 4
+    decoder_attention_heads: int = 1
     decoder_attention_use_qkv_bias: bool = True
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.2
