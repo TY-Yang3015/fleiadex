@@ -18,6 +18,7 @@ class VAE(nn.Module):
     encoder_spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
     encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
+    encoder_attention_heads: int = 8
     encoder_attention_use_qkv_bias: bool = False
     encoder_attention_use_dropout: bool = True
     encoder_attention_dropout_rate: float = 0.1
@@ -30,6 +31,7 @@ class VAE(nn.Module):
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
     decoder_resnet_depth_schedule: tuple[int] = (3, 3, 3)
+    decoder_attention_heads: int = 8
     decoder_attention_use_qkv_bias: bool = False
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.1
@@ -43,6 +45,7 @@ class VAE(nn.Module):
             spatial_downsample_schedule=self.encoder_spatial_downsample_schedule,
             channel_schedule=self.encoder_channel_schedule,
             resnet_depth_schedule=self.encoder_resnet_depth_schedule,
+            attention_heads=self.encoder_attention_heads,
             attention_use_qkv_bias=self.encoder_attention_use_qkv_bias,
             attention_use_dropout=self.encoder_attention_use_dropout,
             attention_dropout_rate=self.encoder_attention_dropout_rate,
@@ -56,6 +59,7 @@ class VAE(nn.Module):
             spatial_upsample_schedule=self.decoder_spatial_upsample_schedule,
             channel_schedule=self.decoder_channel_schedule,
             resnet_depth_schedule=self.decoder_resnet_depth_schedule,
+            attention_heads=self.decoder_attention_heads,
             attention_use_qkv_bias=self.decoder_attention_use_qkv_bias,
             attention_use_dropout=self.decoder_attention_use_dropout,
             attention_dropout_rate=self.decoder_attention_dropout_rate,

@@ -54,8 +54,8 @@ class TimeEmbeddingInit(nn.Module):
         return embedding
 
 
-# print(TimeEmbeddingInit(128).tabulate(jax.random.PRNGKey(42),jnp.array([2, 3, 4, 5]),
-#  console_kwargs={'width':150}))
+# print(TimeEmbeddingInit(128).tabulate(jax.random.PRNGKey(42),jnp.ones((5, 1)),
+# console_kwargs={'width':150}))
 
 
 class TimeEmbedding(nn.Module):
@@ -99,5 +99,5 @@ class TimeEmbedding(nn.Module):
 
         return x + h
 
-#print(TimeEmbedding(128, 0.1).tabulate(jax.random.PRNGKey(1), jnp.ones((10, 5, 16,
-#16, 128)), jnp.ones((10, 124)), True, console_kwargs={'width':150}))
+# print(TimeEmbedding(128, 0.1).tabulate(jax.random.PRNGKey(1), jnp.ones((10, 5, 16,
+# 16, 128)), jnp.ones((10, 128)), True, console_kwargs={'width':150}))

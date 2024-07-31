@@ -9,7 +9,7 @@ class PatternFactory:
     @staticmethod
     def axial():
         T, H, W, C = PatternFactory._input_shape
-        cuboid_sizes = [(T, 1, 1), (1, H, 1), (1, 1, W)]
+        cuboid_sizes = [(int(T), 1, 1), (1, int(H), 1), (1, 1, int(W))]
         strategy = [('l', 'l', 'l'), ('l', 'l', 'l'), ('l', 'l', 'l')]
         shift_sizes = [(0, 0, 0), (0, 0, 0), (0, 0, 0)]
         return cuboid_sizes, shift_sizes, strategy

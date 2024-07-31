@@ -50,13 +50,13 @@ class PatchMerge3D(nn.Module):
                       w // self.down_sample_factors[2], self.down_sample_factors[2], c)
         x = rearrange(x, 'a b c d e f g h -> a b d f c e g h')
         x = x.reshape(batch_size, t // self.down_sample_factors[0], h // self.down_sample_factors[1],
-                      w // self.down_sample_factors[2], self.down_sample_factors[0] * self.down_sample_factors[1] * self.down_sample_factors[2] * c)
+                      w // self.down_sample_factors[2],
+                      self.down_sample_factors[0] * self.down_sample_factors[1] * self.down_sample_factors[2] * c)
         x = self.norm_layer(x)
         x = self.reduction_layer(x)
 
         return x
 
-
-#rng = jax.random.PRNGKey(0)
-#print(PatchMerge3D(256, (1, 2, 2)).tabulate(rng, jnp.ones((10, 5, 16, 16, 256)),
+# rng = jax.random.PRNGKey(0)
+# print(PatchMerge3D(256, (1, 2, 2)).tabulate(rng, jnp.ones((10, 5, 16, 16, 256)),
 #                                            console_kwargs={'width':150}))

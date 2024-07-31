@@ -2,7 +2,7 @@ import flax.linen as nn
 import jax.numpy as jnp
 import jax
 
-from src.pleiades.blocks import (SelfAttention, ResNetBlock, Identity)
+from src.pleiades.blocks import (SelfAttention, ResNetBlock)
 
 
 class Decoder(nn.Module):
@@ -10,6 +10,7 @@ class Decoder(nn.Module):
     spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     channel_schedule: tuple[int] = (512, 256, 128)
     resnet_depth_schedule: tuple[int] = (3, 3, 3)
+    attention_heads: int = 8
     attention_use_qkv_bias: bool = False
     attention_use_dropout: bool = True
     attention_dropout_rate: float = 0.1
@@ -40,6 +41,7 @@ class Decoder(nn.Module):
 
         self.attention = SelfAttention(
             output_channels=self.channel_schedule[0],
+            num_heads=self.attention_heads,
             use_qkv_bias=self.attention_use_qkv_bias,
             use_dropout=self.attention_use_dropout,
             dropout_rate=self.attention_dropout_rate,

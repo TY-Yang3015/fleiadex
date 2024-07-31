@@ -173,15 +173,12 @@ class CuboidSelfAttention(nn.Module):
         x = x.reshape(batch_size, int(t), int(h), int(w), c)
         return x
 
-    def _compute_attention_mask(self, shape, size, shift, strategy, padding_type) -> jnp.ndarray:
-        size = jnp.int32(size)
-        shift = jnp.int32(shift)
-        shape = jnp.int32(shape)
+    def _compute_attention_mask(self, pads, shape, size, shift, strategy, padding_type) -> jnp.ndarray:
 
         t, h, w = shape
-        pad_t = jnp.int32((size[0] - t % size[0]) % size[0])
-        pad_h = jnp.int32((size[1] - h % size[1]) % size[1])
-        pad_w = jnp.int32((size[2] - w % size[2]) % size[2])
+        pad_t = pads[0]
+        pad_h = pads[1]
+        pad_w = pads[2]
         data_mask = None
 
         if pad_t > 0 or pad_h > 0 or pad_w > 0:
@@ -189,7 +186,7 @@ class CuboidSelfAttention(nn.Module):
                 data_mask = jnp.ones((1, t, h, w, 1))
                 data_mask = jnp.pad(data_mask, ((0, 0), (0, pad_t), (0, pad_h), (0, pad_w), (0, 0)))
         else:
-            data_mask = jnp.ones((1, t + pad_t, h + pad_h, w + pad_w, 1))
+            data_mask = jnp.ones((1, t, h, w, 1))
 
         if any(i > 0 for i in shift):
             if padding_type == 'auto':
@@ -198,7 +195,10 @@ class CuboidSelfAttention(nn.Module):
             data_mask = self._cuboid_reorder(data_mask, size, strategy)
             data_mask = data_mask.reshape(data_mask.shape[1], data_mask.shape[2])
 
-        shift_mask = jnp.zeros((1, t + pad_t, h + pad_h, w + pad_w, 1))
+        if pad_t > 0 or pad_h > 0 or pad_w > 0:
+            shift_mask = jnp.zeros((1, t + pad_t, h + pad_h, w + pad_w, 1))
+        else:
+            shift_mask = jnp.zeros((1, t, h, w, 1))
         count = 0
 
         for ti in slice(-size[0]), slice(-size[0], -shift[0]), slice(-shift[0], None):
@@ -233,7 +233,7 @@ class CuboidSelfAttention(nn.Module):
     def __call__(self, x_input: jnp.ndarray, train: bool) -> jnp.ndarray:
         x = self.layer_norm(x_input)
 
-        batch_size, t, h, w, c_in = x.shape
+        batch_size, t, h, w, c_in = jnp.shape(x)
         assert c_in == self.input_channels, ("the input channel dimension "
                                              "does not much the specified dimension value.")
         assert c_in % self.attention_heads == 0, ("the attention head dimension must "
@@ -253,7 +253,7 @@ class CuboidSelfAttention(nn.Module):
         x_reordered = self._cuboid_reorder(shifted_x, cuboid_size=self.cuboid_size, strategy=self.strategy)
         _, number_of_cuboids, cuboid_volume, _ = x_reordered.shape
 
-        attention_mask = self._compute_attention_mask((t, h, w), self.cuboid_size,
+        attention_mask = self._compute_attention_mask((pad_t, pad_h, pad_w), (t, h, w), self.cuboid_size,
                                                       self.shift_size, self.strategy,
                                                       self.padding_type)
 

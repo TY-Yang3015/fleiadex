@@ -46,8 +46,7 @@ class EarthformerSpec:
     use_inter_attention_ffn: bool = False
     positional_embedding_type: str = 't+h+w'
     use_relative_position: bool = True
-    use_attention_final_projection: bool = False
-    attention_with_final_projection: bool = True
+    use_attention_final_projection: bool = True
     time_embedding_channels_multiplier: int = 4
     time_embedding_dropout_rate: float = 0.1
 

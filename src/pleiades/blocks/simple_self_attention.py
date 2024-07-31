@@ -7,8 +7,12 @@ from einops import rearrange
 class SelfAttention(nn.Module):
     """
     This is a light wrapper around `flax.linen.MultiHeadDotProductAttention` with a GroupNorm and an output projection.
+    If the option use_memory_efficient_attention is set to True, the memory efficient attention mechanism adapted from
+    the hugging face diffuser module will be used.
 
     :cvar output_channels: number of projected output channels.
+    :cvar num_heads: number of attention heads.
+    :cvar use_memory_efficient_attention: whether to use memory efficient attention.
     :cvar group: number of groups used for GroupNorm.
     :cvar use_qkv_bias: whether to use bias in the QKV matrix.
     :cvar use_dropout: whether to use dropout in the attention layer.
@@ -16,6 +20,7 @@ class SelfAttention(nn.Module):
 
     """
     output_channels: int
+    num_heads: int = 8
     use_memory_efficient_attention: bool = True
     group: int = 32
     use_qkv_bias: bool = False
@@ -32,13 +37,13 @@ class SelfAttention(nn.Module):
         if self.use_memory_efficient_attention:
             x = MemoryEfficientAttention(
                 query_dim=shape[-1],
-                heads=1,
+                heads=self.num_heads,
                 dim_head=self.output_channels,
                 dropout=self.dropout_rate if self.use_dropout else 0.
             )(x, deterministic=not train)
         else:
             x = nn.MultiHeadDotProductAttention(
-                num_heads=1,
+                num_heads=self.num_heads,
                 qkv_features=shape[-1],
                 out_features=self.output_channels,
                 dropout_rate=0 if self.use_dropout is False else self.dropout_rate,
