@@ -5,6 +5,7 @@ from flax.core import FrozenDict
 
 from src.pleiades.diffuser.ddpm_utils import DDPMManager
 from pleiades.diffuser_backbones.earthformer_unet import EarthformerUNet
+from pleiades.diffuser_backbones.vanilla_unet2d import VanillaUNet2D
 
 
 class DDPMCore(nn.Module):
@@ -25,8 +26,14 @@ class DDPMCore(nn.Module):
             self.unet_backbone = EarthformerUNet(
                 **self.config['nn_spec']
             )
+        elif self.unet_type == "vanilla2d":
+            self.unet_backbone = VanillaUNet2D(
+                **self.config['nn_spec']
+            )
+        elif self.unet_type == "vanilla3d":
+            pass
         else:
-            raise NotImplementedError('only earthformer unet is supported.')
+            raise NotImplementedError('only earthformer, vanilla2d and vanilla 3d unets are supported.')
 
     def __call__(self, x, eval_key, train):
         x_cond = x[:, :self.config['data_spec']['condition_length']]

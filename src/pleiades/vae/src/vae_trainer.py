@@ -9,6 +9,7 @@ from flax.core import FrozenDict
 from jax import random, jit
 import jax.numpy as jnp
 import optax
+import tensorflow as tf
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -485,6 +486,10 @@ class Trainer:
                     )
                 )
 
+                if jnp.isnan(vae_metrics['loss']):
+                    logging.warning('nan data detected. auto-break.')
+                    break
+
                 logging.info('discriminator loss: {:.4f}'.format(discriminator_metric['loss']))
             else:
                 logging.info(
@@ -493,9 +498,14 @@ class Trainer:
                     )
                 )
 
+                if jnp.isnan(vae_metrics['loss']):
+                    logging.warning('nan data detected. auto-break.')
+                    break
+
             if auxiliary_metric:
-                logging.info('auxiliary SSIM: {:.4f}'.format(ssim(comparison[:self.config['hyperparams']['batch_size']],
+                batchwise_ssim = ssim(comparison[:self.config['hyperparams']['batch_size']],
                                                                   comparison[self.config['hyperparams']['batch_size']:],
-                                                                  self.config)))
+                                                                  self.config)
+                logging.info('auxiliary SSIM: {:.4f}'.format(batchwise_ssim))
 
         vae_mngr.wait_until_finished()

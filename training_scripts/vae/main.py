@@ -27,7 +27,7 @@ cs.store(name='vae_config', node=VAEConfig)
 def execute(config: VAEConfig) -> None:
     trainer = train.Trainer(config)
     # trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
-    #                      "2024-07-27/16-43-15/results/vae_ckpt", load_config=False)
+    #                      "2024-08-01/01-41-54/results/vae_ckpt", load_config=True)
     trainer.train(auxiliary_metric=True)
 
 

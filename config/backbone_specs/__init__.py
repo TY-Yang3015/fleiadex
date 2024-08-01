@@ -1,0 +1,2 @@
+from config.backbone_specs.earthformer_spec import EarthformerSpec
+from config.backbone_specs.vanilla2d_spec import Vanilla2DSpec

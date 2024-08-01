@@ -37,7 +37,7 @@ class Trainer:
 
         # the diffusion core
         self.diffusor = DDPMCore(
-            unet_type='earthformer',
+            unet_type='vanilla2d',
             config=self.config,
             diffusion_time_steps=self.config['hyperparams']['diffusion_time_steps']
         )
