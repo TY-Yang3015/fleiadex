@@ -4,11 +4,11 @@ from dataclasses import dataclass, field
 @dataclass
 class Hyperparams:
     learning_rate: float | str = "optax.cosine_decay_schedule(1e-4, 80000, 1e-7)"
-    batch_size: int = 7
+    batch_size: int = 8
     step: int = 100000
-    kld_weight: float = 0.
+    kld_weight: float = 1e-5
     disc_weight: float = 1e-3
-    discriminator_start_after: int = -1
+    discriminator_start_after: int = 15000
 
     save_ckpt: bool = True
     save_discriminator: bool = True
@@ -22,10 +22,11 @@ class Hyperparams:
 class DataSpec:
     image_size: int = 128
     image_channels: int = 4
-    clip_min: float = 0.
-    clip_max: float = 1
+    auto_normalisation: bool = True
+    rescale_min: float = 0.
+    rescale_max: float = 1
     dataset_dir: str = '../../src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
-    validation_split: float = 0.2
+    validation_split: float = 0.1
 
 
 @dataclass
@@ -33,11 +34,11 @@ class VAENNSpec:
     encoder_spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     encoder_channel_schedule: tuple[int] = (128, 256, 512)
     encoder_resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
-    encoder_attention_heads: int = 8
+    encoder_attention_heads: int = 4
     encoder_attention_use_qkv_bias: bool = False
     encoder_attention_use_dropout: bool = True
     encoder_attention_dropout_rate: float = 0.2
-    encoder_use_memory_efficient_attention = True
+    encoder_use_memory_efficient_attention = False
     encoder_post_attention_resnet_depth: int = 2
     encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
@@ -46,11 +47,11 @@ class VAENNSpec:
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
     decoder_resnet_depth_schedule: tuple[int] = (3, 3, 3)
-    decoder_attention_heads: int = 8
+    decoder_attention_heads: int = 4
     decoder_attention_use_qkv_bias: bool = False
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.2
-    decoder_use_memory_efficient_attention: bool = True
+    decoder_use_memory_efficient_attention: bool = False
     decoder_pre_output_resnet_depth: int = 3
     decoder_reconstruction_channels: int = 4
     decoder_conv_kernel_sizes: tuple[int] = (3, 3)

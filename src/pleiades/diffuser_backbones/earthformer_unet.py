@@ -232,6 +232,6 @@ class EarthformerUNet(nn.Module):
         return x
 
 
-print(EarthformerUNet((5, 16, 16, 4), (5, 16, 16, 4), 256)
-      .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros(10),
-                False, depth=1, console_kwargs={'width': 150}))
+# print(EarthformerUNet((5, 16, 16, 4), (5, 16, 16, 4), 256)
+#      .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros(10),
+#                False, depth=1, console_kwargs={'width': 150}))

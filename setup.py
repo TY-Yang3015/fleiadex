@@ -21,13 +21,13 @@ setup(
     liscense='Mozilla Public License Version 2.0',
 
     packages=find_packages(
-        where="src",
+        where="prediff_vae",
         exclude=(
             'legacy',
             'notebooks',
             'literature',)
     ),
-    package_dir={"": "src"},
+    package_dir={"": "prediff_vae"},
     zip_safe=True,
     include_package_data=True,
     install_requires=requirements,

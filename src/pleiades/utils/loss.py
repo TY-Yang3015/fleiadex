@@ -35,4 +35,4 @@ def discriminator_loss(fake_judgement, origin_judgement):
 
 def ssim(origin, generated, config):
     return tf.reduce_mean(tf.image.ssim(origin, generated,
-                         max_val=jnp.abs(config["data_spec"]["clip_max"] - config["data_spec"]["clip_min"])))
+                         max_val=jnp.abs(config["data_spec"]["rescale_max"] - config["data_spec"]["rescale_min"])))

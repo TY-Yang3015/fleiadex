@@ -60,7 +60,8 @@ class TimeEmbeddingInit(nn.Module):
 
 class TimeEmbedding(nn.Module):
     """
-    the time embedding layer with residual connection at the end.
+    the time embedding layer with residual connection at the end, **require the same input and output shapes**.
+    if not the case, use ``TimeEmbeddingResBlock()`` instead.
 
     :cvar output_channels: the number of channels of the time embedding.
     :cvar dropout: the dropout probability. default: 0.1
@@ -99,5 +100,49 @@ class TimeEmbedding(nn.Module):
 
         return x + h
 
+
 # print(TimeEmbedding(128, 0.1).tabulate(jax.random.PRNGKey(1), jnp.ones((10, 5, 16,
 # 16, 128)), jnp.ones((10, 128)), True, console_kwargs={'width':150}))
+
+class TimeEmbeddingResBlock(nn.Module):
+    """
+    the time embedding layer with residual connection at the end.
+
+    :cvar output_channels: the number of channels of the time embedding.
+    :cvar dropout: the dropout probability. default: 0.1
+    """
+    output_channels: int
+    dropout: float = 0.1
+
+    @nn.compact
+    def __call__(self, x: jnp.ndarray, emb: jnp.ndarray, train: bool) -> jnp.ndarray:
+        """
+        :param x: the data tensor. should have the shape ``(batch, ..., channels)``
+        :param emb: the time embedding tensor from ``TimeEmbeddingInit``
+         or the previous ``TimeEmbedding`` layer. should have the shape ``(batch, channels)``
+        :return: the data tensor with time embedding encoded.
+        """
+
+        x = nn.GroupNorm(num_groups=32 if self.output_channels % 32 == 0 else self.output_channels)(x)
+        x = nn.silu(x)
+        x_skip = nn.Conv(features=self.output_channels,
+                         kernel_size=(3, 3),
+                         strides=(1, 1),
+                         padding=1)(x)
+
+        emb = nn.silu(emb)
+        emb = nn.Dense(features=self.output_channels)(emb)
+        emb = rearrange(emb, 'b c -> b 1 1 1 c')
+        if x.ndim == 4:
+            emb = rearrange(emb, 'b 1 1 1 c -> b 1 1 c')
+        h = emb + x_skip
+
+        h = nn.GroupNorm(num_groups=32 if self.output_channels % 32 == 0 else self.output_channels)(h)
+        h = nn.silu(h)
+        h = nn.Dropout(self.dropout, deterministic=not train)(h)
+        h = nn.Conv(features=self.output_channels,
+                    kernel_size=(3, 3),
+                    strides=(1, 1),
+                    padding=1)(h)
+
+        return h + x_skip

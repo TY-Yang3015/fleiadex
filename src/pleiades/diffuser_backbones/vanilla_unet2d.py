@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import jax
 from einops import rearrange
 
-from src.pleiades.blocks import (TimeEmbedding, TimeEmbeddingInit, PositionalEmbedding, ResNetBlock,
+from src.pleiades.blocks import (TimeEmbedding, TimeEmbeddingInit, PositionalEmbedding, TimeEmbeddingResBlock,
                                  SelfAttention, Identity, PatchMerge3D, UpSampler3D, UpSampler2D)
 
 
@@ -66,7 +66,10 @@ class VanillaUNet2D(nn.Module):
         for _, down_sample_factor in enumerate(self.spatial_down_sample_schedule):
             res_block = []
             for _ in range(self.down_sample_resnet_depth):
-                res_block.append(ResNetBlock())
+                res_block.append(TimeEmbeddingResBlock(
+                    output_channels=current_channels,
+                    dropout=0.1
+                ))
             down_sample_resnet_blocks.append(res_block)
 
             if self.down_sample_use_attention:
@@ -104,7 +107,10 @@ class VanillaUNet2D(nn.Module):
         bottleneck_resnet_blocks = []
         bottleneck_attention_block = []
         for _ in range(self.bottleneck_resnet_depth):
-            bottleneck_resnet_blocks.append(ResNetBlock())
+            bottleneck_resnet_blocks.append(TimeEmbeddingResBlock(
+                output_channels=current_channels,
+                dropout=0.1
+            ))
         if self.bottleneck_use_attention:
             bottleneck_attention_block.append(SelfAttention(
                 output_channels=current_channels,
@@ -116,7 +122,10 @@ class VanillaUNet2D(nn.Module):
         else:
             bottleneck_attention_block.append(Identity())
         for _ in range(self.bottleneck_resnet_depth):
-            bottleneck_resnet_blocks.append(ResNetBlock())
+            bottleneck_resnet_blocks.append(TimeEmbeddingResBlock(
+                output_channels=current_channels,
+                dropout=0.1
+            ))
 
         self.bottleneck_resnet_blocks = bottleneck_resnet_blocks
         self.bottleneck_attention_block = bottleneck_attention_block
@@ -135,7 +144,10 @@ class VanillaUNet2D(nn.Module):
         for _, down_sample_factor in enumerate(reversed(self.spatial_down_sample_schedule)):
             res_block = []
             for _ in range(self.up_sample_resnet_depth):
-                res_block.append(ResNetBlock())
+                res_block.append(TimeEmbeddingResBlock(
+                    output_channels=current_channels,
+                    dropout=0.1
+                ))
             up_sample_resnet_blocks.append(res_block)
 
             if self.up_sample_use_attention:
@@ -187,7 +199,6 @@ class VanillaUNet2D(nn.Module):
 
         self.final_projection = nn.Dense(self.cond_input_shape[-1])
 
-
     def __call__(self, x: jnp.ndarray, cond: jnp.ndarray, t: jnp.ndarray, train: bool) -> jnp.ndarray:
         x = jnp.concat([cond, x], axis=1)
         x = self.input_conv_proj(x)
@@ -199,42 +210,44 @@ class VanillaUNet2D(nn.Module):
         # down sample phase
         if self.merge_temporal_dim_and_image_channels:
             x = rearrange(x, 'b t h w c -> b h w (t c)')
+            #time_embedding = time_embedding.reshape(time_embedding.shape[0], 1, 1,
+            #                                        time_embedding.shape[-1])
 
         if self.unet_use_residual:
             residual = []
         for i in range(len(self.spatial_down_sample_schedule)):
             for res_block in self.down_sample_resnet_blocks[i]:
-                x = res_block(x)
-            if self.merge_temporal_dim_and_image_channels:
-                x = self.down_sample_attention_block[i](x, train)
-            else:
-                shape = x.shape
-                x = rearrange(x, 'b t h w c -> (b t) h w c')
-                x = self.down_sample_attention_block[i](x, train)
-                x = x.reshape(shape)
+                x = res_block(x, time_embedding, train)
+                if self.merge_temporal_dim_and_image_channels:
+                    x = self.down_sample_attention_block[i](x, train)
+                else:
+                    shape = x.shape
+                    x = rearrange(x, 'b t h w c -> (b t) h w c')
+                    x = self.down_sample_attention_block[i](x, train)
+                    x = x.reshape(shape)
             x = self.down_samplers[i](x)
             if self.unet_use_residual:
                 residual.append(x)
 
         # bottleneck
         for i in range(self.bottleneck_resnet_depth):
-            x = self.bottleneck_resnet_blocks[i](x)
-        if self.merge_temporal_dim_and_image_channels:
-            x = self.bottleneck_attention_block[0](x, train)
-        else:
-            shape = x.shape
-            x = rearrange(x, 'b t h w c -> (b t) h w c')
-            x = self.bottleneck_attention_block[0](x, train)
-            x = x.reshape(shape)
+            x = self.bottleneck_resnet_blocks[i](x, time_embedding, train)
+            if self.merge_temporal_dim_and_image_channels:
+                x = self.bottleneck_attention_block[0](x, train)
+            else:
+                shape = x.shape
+                x = rearrange(x, 'b t h w c -> (b t) h w c')
+                x = self.bottleneck_attention_block[0](x, train)
+                x = x.reshape(shape)
         for i in range(self.bottleneck_resnet_depth):
-            x = self.bottleneck_resnet_blocks[-i-1](x)
+            x = self.bottleneck_resnet_blocks[-i - 1](x, time_embedding, train)
 
         # up-sample phase
         for i in range(len(self.spatial_down_sample_schedule)):
             if self.unet_use_residual:
-                 x += residual[-i-1]
+                x = jnp.concat([residual[-i - 1], x], axis=-1)
             for res_block in self.up_sample_resnet_blocks[i]:
-                x = res_block(x)
+                x = res_block(x, time_embedding, train)
             if self.merge_temporal_dim_and_image_channels:
                 x = self.up_sample_attention_block[i](x, train)
             else:

@@ -1,0 +1,1 @@
+from src.pleiades.data_module.npy_loader import DataLoader

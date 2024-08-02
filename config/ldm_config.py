@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from backbone_specs import EarthformerSpec
+from backbone_specs import EarthformerSpec, Vanilla2DSpec
 
 @dataclass
 class DataSpec:
@@ -8,7 +8,7 @@ class DataSpec:
     image_channels: int = 4
     clip_min: float = 0.
     clip_max: float = 1
-    dataset_dir: str = '../../src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
+    dataset_dir: str = '../../prediff_vae/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
     validation_split: float = 0.2
     condition_length: int = 3
     prediction_length: int = 2
