@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import jax
 
 from src.pleiades.blocks import (SelfAttention, ResNetBlock)
+from src.pleiades.utils import get_activation
 
 
 class Encoder(nn.Module):
@@ -21,6 +22,10 @@ class Encoder(nn.Module):
     post_attention_resnet_depth: int = 2
     latents_channels: int = 4
     conv_kernel_sizes: tuple[int] = (3, 3)
+    down_sample_activation: str = 'silu'
+    post_attention_activation: str = 'silu'
+    final_activation: str = 'silu'
+
 
     def setup(self) -> None:
 
@@ -44,9 +49,13 @@ class Encoder(nn.Module):
             res_blocks = []
             res_blocks.append(ResNetBlock(
                 output_channels=self.channel_schedule[i],
+                activation=self.down_sample_activation
             ))
             for _ in range(self.resnet_depth_schedule[i] - 1):
-                res_blocks.append(ResNetBlock())
+                res_blocks.append(ResNetBlock(
+                    output_channels=self.channel_schedule[i],
+                    activation=self.down_sample_activation
+                ))
             resnet_block_lists.append(res_blocks)
             downsampler_lists.append(
                 nn.Conv(features=self.channel_schedule[i],
@@ -59,10 +68,14 @@ class Encoder(nn.Module):
 
         res_blocks = []
         res_blocks.append(ResNetBlock(
-            output_channels=self.channel_schedule[-1]
+            output_channels=self.channel_schedule[-1],
+            activation=self.down_sample_activation
         ))
         for _ in range(self.resnet_depth_schedule[-1] - 1):
-            res_blocks.append(ResNetBlock())
+            res_blocks.append(ResNetBlock(
+                output_channels=self.channel_schedule[-1],
+                activation=self.down_sample_activation
+            ))
         resnet_block_lists.append(res_blocks)
 
         self.attention = SelfAttention(
@@ -79,7 +92,9 @@ class Encoder(nn.Module):
 
         final_res_blocks = []
         for _ in range(self.post_attention_resnet_depth):
-            final_res_blocks.append(ResNetBlock())
+            final_res_blocks.append(ResNetBlock(
+                activation=self.post_attention_activation
+            ))
 
         self.final_res_blocks = final_res_blocks
 
@@ -118,7 +133,7 @@ class Encoder(nn.Module):
             x = block(x)
 
         x = self.output_gr(x)
-        x = nn.silu(x)
+        x = get_activation(self.final_activation)(x)
         x = self.output_conv(x)
 
         mean, logvar = x[..., :self.latents_channels], x[..., self.latents_channels:]

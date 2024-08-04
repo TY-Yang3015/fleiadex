@@ -1,10 +1,12 @@
 import flax.linen as nn
 import jax.numpy as jnp
 import jax
+from src.pleiades.utils import get_activation
 
 
 class ResNetBlock(nn.Module):
     output_channels: int | None = None
+    activation: str = 'silu'
     group: int = 32
 
     @nn.compact
@@ -28,5 +30,5 @@ class ResNetBlock(nn.Module):
                     kernel_size=(3, 3),
                     strides=(1, 1),
                     padding='SAME')(x)
-        x = nn.silu(x)
+        x = get_activation(self.activation)(x)
         return x + residual

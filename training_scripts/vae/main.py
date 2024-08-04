@@ -26,8 +26,8 @@ cs.store(name='vae_config', node=VAEConfig)
 @hydra.main(version_base=None, config_name="vae_config")
 def execute(config: VAEConfig) -> None:
     trainer = train.Trainer(config)
-    # trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
-    #                      "2024-08-01/01-41-54/results/vae_ckpt", load_config=True)
+    #trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
+    #                      "2024-08-03/22-07-34/results/vae_ckpt", load_config=False)
     trainer.train(auxiliary_metric=True)
 
 

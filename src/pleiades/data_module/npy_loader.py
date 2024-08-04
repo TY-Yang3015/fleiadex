@@ -40,6 +40,10 @@ class DataLoader:
 
         self._make_layout()
 
+        if len(self.target_layout.split(' ')) != 3:
+            raise ValueError('target layout is only required for the last'
+                             '3 channels.')
+
         if (self.target_layout.split(' ')[-1]
                 == 'c'.casefold()):
             self.std = np.std(self.data, axis=(0, 1, 2), ddof=1)
@@ -55,6 +59,9 @@ class DataLoader:
                              'non-zero.')
         else:
             self.validation_length = int(self.validation_size * size)
+
+        self.data_max = np.max(self.data)
+        self.data_min = np.min(self.data)
 
     def _make_layout(self):
         # check the last three dims (C H W) / (H W C)
@@ -93,10 +100,10 @@ class DataLoader:
             self.data = tf.image.resize(
                 self.data,
                 (
-                 self.output_image_size,
-                 self.output_image_size,
-                 ),
-                method='bilinear')
+                    self.output_image_size,
+                    self.output_image_size,
+                ),
+                method='nearest')
         else:
             self.data = tf.image.resize(
                 self.data,
@@ -104,15 +111,16 @@ class DataLoader:
                  self.data.shape[1],
                  self.output_image_size,
                  self.output_image_size),
-                method='bilinear')
+                method='nearest')
 
         if not ((self.rescale_max is None) or (self.rescale_min is None)):
-            self.data -= np.min(self.data)
-            self.data /= np.max(self.data) - np.min(self.data)
+            self.data -= self.data_min
+            self.data /= self.data_max - self.data_min
             self.data *= self.rescale_max - self.rescale_min
             self.data += self.rescale_min
+            logging.info(f'dataset rescaled to [{np.max(self.data)}, {np.min(self.data)}]')
         else:
-            pass
+            logging.info('no scaling was applied.')
 
         return self
 
@@ -138,10 +146,26 @@ class DataLoader:
         summary['channel-wise_std'] = self.std.tolist()
         summary['validation_size'] = self.validation_size
         summary['validation_length'] = self.validation_length
+        summary['data_max'] = self.data_max
+        summary['data_min'] = self.data_min
 
         with open(f'{save_dir}/summary.json', 'w') as f:
             json.dump(summary, f)
 
+        return self
+
+    def read_data_summary(self, json_dir: str):
+        with open(json_dir, 'r') as f:
+            summary = json.load(f)
+
+        self.mean = np.array(summary['channel-wise_mean'])
+        self.std = np.array(summary['channel-wise_std'])
+        self.validation_size = np.array(summary['validation_size'])
+        self.validation_length = np.array(summary['validation_length'])
+        self.data_max = np.array(summary['data_max'])
+        self.data_min = np.array(summary['data_min'])
+
+        logging.info('dataset summary read successfully.')
         return self
 
     def get_dataset(self):
@@ -154,11 +178,13 @@ class DataLoader:
         val_dataset = val_dataset.cache()
 
         if self.sequenced:
-            self.train_dataset = train_dataset.batch(self.sequence_length)
+            self.train_dataset = train_dataset.batch(self.sequence_length,
+                                                     drop_remainder=True)
             self.train_dataset = val_dataset.rebatch(self.batch_size,
                                                      drop_remainder=True)
 
-            self.val_dataset = val_dataset.batch(self.sequence_length)
+            self.val_dataset = val_dataset.batch(self.sequence_length,
+                                                 drop_remainder=True)
             self.val_dataset = val_dataset.rebatch(self.batch_size,
                                                    drop_remainder=True)
 
@@ -173,8 +199,32 @@ class DataLoader:
 
         return self.train_dataset.as_numpy_iterator(), self.val_dataset.as_numpy_iterator()
 
+    def reverse_preprocess(self, image):
+
+        if self.target_layout.split(' ')[-1] == 'c'.casefold():
+            image = image * self.std + self.mean
+        elif self.target_layout.split(' ')[0] == 'c'.casefold():
+            if self.sequenced:
+                image = rearrange(image, 'b t c h w -> b t h w c')
+            else:
+                image = rearrange(image, 'b c h w -> b h w c')
+
+            image = image * self.std + self.mean
+
+            if self.sequenced:
+                image = rearrange(image, 'b t h w c -> b c t h w')
+            else:
+                image = rearrange(image, 'b h w c -> b c h w')
+
+        if not ((self.rescale_max is None) or (self.rescale_min is None)):
+            image -= self.rescale_min
+            image /= self.rescale_max
+            image *= self.data_max - self.data_min
+            image += self.data_min
+
+        return image
+
     def save_image(self,
-                   config,
                    save_dir,
                    ndarray,
                    fp,
@@ -183,7 +233,7 @@ class DataLoader:
                    pad_value=0.0,
                    format_img=None):
 
-        return save_image(config, save_dir, ndarray,
+        return save_image(self, save_dir, ndarray,
                           fp, nrow=nrow,
                           padding=padding,
                           pad_value=pad_value,

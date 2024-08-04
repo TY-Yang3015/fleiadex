@@ -9,7 +9,6 @@ from flax.core import FrozenDict
 from jax import random, jit
 import jax.numpy as jnp
 import optax
-import tensorflow as tf
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -18,8 +17,7 @@ import hydra
 from omegaconf import OmegaConf
 
 import src.pleiades.vae.prediff_vae.vae as models
-from src.pleiades.utils import (load_dataset, save_image,
-                                mse, kl_divergence, ssim, discriminator_loss,
+from src.pleiades.utils import (mse, kl_divergence, ssim, discriminator_loss,
                                 TrainStateWithDropout, TrainStateWithBatchStats)
 from src.pleiades.vae.prediff_vae.discriminator import Discriminator
 from config.vae_config import VAEConfig
@@ -280,16 +278,22 @@ class Trainer:
                                                                            'batch_stats': batch_stats})
 
     def _save_output(self, save_dir, comparison, sample, epoch):
+        comparison = self.data_loader.reverse_preprocess(comparison)
+        sample = self.data_loader.reverse_preprocess(sample)
+
         if self.config['hyperparams']['save_comparison']:
             self.data_loader.save_image(
-                self.config, save_dir + '/comparison',
+                save_dir + '/comparison',
                 comparison, f'/comparison_{int(epoch + 1)}.png', nrow=self.config['hyperparams']['batch_size']
             )
 
         if self.config['hyperparams']['save_sample']:
-            self.data_loader.save_image(self.config, save_dir + '/sample',
-                       sample, f'/sample_{int(epoch + 1)}.png', nrow=self.config['hyperparams']['sample_size']
-                       )
+            self.data_loader.save_image(save_dir + '/sample',
+                                        sample, f'/sample_{int(epoch + 1)}.png',
+                                        nrow=self.config['hyperparams']['sample_size']
+                                        if self.config['hyperparams']['sample_size'] <= 10
+                                        else 10
+                                        )
 
     def _clear_result(self):
         directory = self.save_dir + '/comparison'
@@ -392,11 +396,6 @@ class Trainer:
         del mngr
 
     def train(self, auxiliary_metric=False):
-        if auxiliary_metric:
-            if self.config['data_spec']['rescale_max'] is None or self.config['data_spec']['rescale_min'] is None:
-                raise ValueError('auxiliary metric can only be computed when the image max and min'
-                                 'are known.')
-
         logging.info('initializing model.')
         init_data = jnp.ones((self.config['hyperparams']['batch_size'],
                               self.config['data_spec']['image_size'],
@@ -489,7 +488,7 @@ class Trainer:
                     vae_state.params, current_test_ds, self.latent_sample,
                     self.eval_rng)
 
-            self._save_output(self.save_dir, comparison, sample, step)
+            self._save_output(self.save_dir, comparison.copy(), sample.copy(), step)
 
             if (step % 1000 == 0) and (step != 0):
                 self._clear_result()
@@ -520,8 +519,7 @@ class Trainer:
 
             if auxiliary_metric:
                 batchwise_ssim = ssim(comparison[:self.config['hyperparams']['batch_size']],
-                                      comparison[self.config['hyperparams']['batch_size']:],
-                                      self.config)
+                                      comparison[self.config['hyperparams']['batch_size']:])
                 logging.info('auxiliary SSIM: {:.4f}'.format(batchwise_ssim))
 
         vae_mngr.wait_until_finished()

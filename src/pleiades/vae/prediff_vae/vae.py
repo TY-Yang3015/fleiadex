@@ -26,6 +26,9 @@ class VAE(nn.Module):
     encoder_post_attention_resnet_depth: int = 2
     encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
+    encoder_down_sample_activation: str = 'silu'
+    encoder_post_attention_activation: str = 'silu'
+    encoder_final_activation: str = 'silu'
 
     decoder_latent_channels: int = 4
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
@@ -35,10 +38,15 @@ class VAE(nn.Module):
     decoder_attention_use_qkv_bias: bool = False
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.1
+    decoder_up_sampler_type: str = 'resize'
     decoder_use_memory_efficient_attention: bool = False
     decoder_pre_output_resnet_depth: int = 3
+    decoder_use_final_linear_projection: bool = False
     decoder_reconstruction_channels: int = 4
     decoder_conv_kernel_sizes: tuple[int] = (3, 3)
+    decoder_up_sample_activation: str = "silu"
+    decoder_pre_output_activation: str = "silu"
+    decoder_final_activation: str = "silu"
 
     def setup(self) -> None:
         self.encoder = Encoder(
@@ -52,7 +60,10 @@ class VAE(nn.Module):
             use_memory_efficient_attention=self.encoder_use_memory_efficient_attention,
             post_attention_resnet_depth=self.encoder_post_attention_resnet_depth,
             latents_channels=self.encoder_latents_channels,
-            conv_kernel_sizes=self.encoder_conv_kernel_sizes
+            conv_kernel_sizes=self.encoder_conv_kernel_sizes,
+            down_sample_activation=self.encoder_down_sample_activation,
+            post_attention_activation=self.encoder_post_attention_activation,
+            final_activation=self.encoder_final_activation
         )
         self.decoder = Decoder(
             latent_channels=self.decoder_latent_channels,
@@ -63,10 +74,15 @@ class VAE(nn.Module):
             attention_use_qkv_bias=self.decoder_attention_use_qkv_bias,
             attention_use_dropout=self.decoder_attention_use_dropout,
             attention_dropout_rate=self.decoder_attention_dropout_rate,
+            up_sampler_type=self.decoder_up_sampler_type,
             use_memory_efficient_attention=self.decoder_use_memory_efficient_attention,
             pre_output_resnet_depth=self.decoder_pre_output_resnet_depth,
+            use_final_linear_projection=self.decoder_use_final_linear_projection,
             reconstruction_channels=self.decoder_reconstruction_channels,
-            conv_kernel_sizes=self.decoder_conv_kernel_sizes
+            conv_kernel_sizes=self.decoder_conv_kernel_sizes,
+            up_sample_activation=self.decoder_up_sample_activation,
+            pre_output_activation=self.decoder_pre_output_activation,
+            final_activation=self.decoder_final_activation
         )
 
     def __call__(self, x: jnp.ndarray, z_rng: jnp.ndarray

@@ -1,15 +1,22 @@
-import os
-
 import numpy as np
 from PIL import Image
 import math
 import jax.numpy as jnp
 
 
-def save_image(config, save_dir, ndarray, fp, nrow=8, padding=2, pad_value=0.0, format_img=None):
+def save_image(data_loader,
+               save_dir: str,
+               ndarray: jnp.ndarray,
+               fp: any,
+               nrow: int = 8,
+               padding: int = 2,
+               pad_value: float = 0.0,
+               format_img: any = None):
     """Make a grid of images and Save it into an image file.
 
     Args:
+        data_loader (DataLoader): the dataloader object.
+        save_dir (str): the directory to save the image file.
         ndarray (array_like): 4D mini-batch images of shape (B x H x W x C)
         fp:  A filename(string) or file object
         nrow (int, optional): Number of images displayed in each row of the grid.
@@ -32,17 +39,20 @@ def save_image(config, save_dir, ndarray, fp, nrow=8, padding=2, pad_value=0.0, 
 
     ndarray = jnp.asarray(ndarray)
 
-    if config['data_spec']['rescale_min'] is None or config['data_spec']['rescale_max'] is None:
-        ndarray -= ndarray.min()
-        ndarray /= ndarray.max() - ndarray.min()
+    if data_loader.rescale_min is None or data_loader.rescale_max is None:
+        ndarray -= data_loader.data_min
+        ndarray /= data_loader.data_max
     else:
-        ndarray -= config['data_spec']['rescale_min']
-        ndarray /= (config['data_spec']['rescale_max'] - config['data_spec']['rescale_min'])
+        ndarray -= data_loader.rescale_min
+        ndarray /= data_loader.rescale_max
 
     if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
         ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)
     elif ndarray.ndim == 4 and ndarray.shape[-1] > 3:
         ndarray = ndarray[:, :, :, :3]
+
+    # adjust intensity for visualisation purpose
+    ndarray *= 2
 
     # make the mini-batch of images into a grid
     nmaps = ndarray.shape[0]
@@ -68,10 +78,7 @@ def save_image(config, save_dir, ndarray, fp, nrow=8, padding=2, pad_value=0.0, 
                    ].set(ndarray[k])
             k = k + 1
 
-
     # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
-    ndarr = np.array(jnp.clip(grid * 255.0 + 0.5, 0, 255).astype(jnp.uint8))
-    im = Image.fromarray(ndarr.copy())
+    ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
+    im = Image.fromarray(ndarr.copy(), mode='RGB')
     im.save(save_dir + fp, format=format_img)
-
-

@@ -7,8 +7,8 @@ from einops import rearrange
 class SelfAttention(nn.Module):
     """
     This is a light wrapper around `flax.linen.MultiHeadDotProductAttention` with a GroupNorm and an output projection.
-    If the option use_memory_efficient_attention is set to True, the memory efficient attention mechanism adapted from
-    the hugging face diffuser module will be used.
+    If the option ``use_memory_efficient_attention`` is set to ``True``, the memory efficient attention mechanism adapted from
+    the hugging face ``diffuser`` module will be used.
 
     :cvar output_channels: number of projected output channels.
     :cvar num_heads: number of attention heads.
