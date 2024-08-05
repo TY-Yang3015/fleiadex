@@ -9,7 +9,6 @@ from src.pleiades.diffuser_backbones.vanilla_unet2d import VanillaUNet2D
 
 
 class DDPMCore(nn.Module):
-    unet_type: str
     config: FrozenDict
     diffusion_time_steps: int
 
@@ -22,15 +21,15 @@ class DDPMCore(nn.Module):
             clip_max=1.
         )
 
-        if self.unet_type == "earthformer":
+        if self.config['global_config']['use_diffuser_backbone'] == "earthformer":
             self.unet_backbone = EarthformerUNet(
                 **self.config['nn_spec']
             )
-        elif self.unet_type == "vanilla2d":
+        elif self.config['global_config']['use_diffuser_backbone'] == 'vanilla2d':
             self.unet_backbone = VanillaUNet2D(
                 **self.config['nn_spec']
             )
-        elif self.unet_type == "vanilla3d":
+        elif self.config['global_config']['use_diffuser_backbone'] == "vanilla3d":
             pass
         else:
             raise NotImplementedError('only earthformer, vanilla2d and vanilla 3d unets are supported.')

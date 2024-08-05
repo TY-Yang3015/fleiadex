@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from config.backbone_specs import EarthformerSpec, Vanilla2DSpec
+from config.backbone_specs import *
+from config.global_config import GlobalConfig
 
 @dataclass
 class DataSpec:
@@ -32,3 +33,4 @@ class LDMConfig:
     hyperparams: Hyperparams = field(default_factory=Hyperparams)
     data_spec: DataSpec = field(default_factory=DataSpec)
     nn_spec: Vanilla2DSpec = field(default_factory=Vanilla2DSpec)
+    global_config: GlobalConfig = field(default_factory=GlobalConfig)

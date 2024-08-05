@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-
+from config.global_config import GlobalConfig
 
 @dataclass
 class Hyperparams:
@@ -70,3 +70,4 @@ class VAEConfig:
     hyperparams: Hyperparams = field(default_factory=Hyperparams)
     data_spec: DataSpec = field(default_factory=DataSpec)
     nn_spec: VAENNSpec = field(default_factory=VAENNSpec)
+    global_config: GlobalConfig = field(default_factory=GlobalConfig)

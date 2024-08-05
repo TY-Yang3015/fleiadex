@@ -1,22 +1,10 @@
 from absl import app
-from absl import logging
-from clu import platform
-import jax
 import hydra
 from hydra.core.config_store import ConfigStore
 import tensorflow as tf
-
+import os
 import src.pleiades.trainers.prediff_vae_trainer as train
 from config.vae_config import VAEConfig
-from jax.lib import xla_bridge
-
-
-def jax_has_gpu():
-    try:
-        _ = jax.device_put(jax.numpy.ones(1), device=jax.devices('gpu')[0])
-        return True
-    except Exception:
-        return False
 
 
 cs = ConfigStore.instance()
@@ -25,6 +13,7 @@ cs.store(name='vae_config', node=VAEConfig)
 
 @hydra.main(version_base=None, config_name="vae_config")
 def execute(config: VAEConfig) -> None:
+    os.environ['CUDA_VISIBLE_DEVICE'] = config.global_config.use_which_gpus
     trainer = train.Trainer(config)
     #trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
     #                      "2024-08-03/22-07-34/results/vae_ckpt", load_config=False)
@@ -36,22 +25,6 @@ def main(argv):
         raise app.UsageError('Too many command-line arguments.')
 
     tf.config.experimental.set_visible_devices([], 'GPU')
-
-    logging.info(f'JAX backend: {xla_bridge.get_backend().platform}')
-
-    if xla_bridge.get_backend().platform == 'gpu':
-        if jax_has_gpu():
-            pass
-        else:
-            logging.warning('JAX GPU not intialised properly.')
-
-    logging.info(f'JAX process: {jax.process_index() + 1} / {jax.process_count()}')
-    logging.info(f'JAX local devices: {jax.local_devices()}')
-
-    platform.work_unit().set_task_status(
-        f'process_index: {jax.process_index()}, '
-        f'process_count: {jax.process_count()}'
-    )
 
     execute()
 

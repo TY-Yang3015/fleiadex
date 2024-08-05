@@ -10,6 +10,8 @@ from jax import random, jit, grad
 import jax.numpy as jnp
 import einops
 import optax
+from clu import platform
+from jax.lib import xla_bridge
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -26,6 +28,15 @@ from config.ldm_config import LDMConfig
 
 class Trainer:
     def __init__(self, config: LDMConfig):
+        logging.info(f'JAX backend: {xla_bridge.get_backend().platform}')
+
+        logging.info(f'JAX process: {jax.process_index() + 1} / {jax.process_count()}')
+        logging.info(f'JAX local devices: {jax.local_devices()}')
+
+        platform.work_unit().set_task_status(
+            f'process_index: {jax.process_index()}, '
+            f'process_count: {jax.process_count()}'
+        )
 
         # convert to FrozenDict, the standard config container in jax
         self.config: FrozenDict = FrozenDict(OmegaConf.to_container(config))
@@ -37,7 +48,6 @@ class Trainer:
 
         # the diffusion core
         self.diffusor = DDPMCore(
-            unet_type='vanilla2d',
             config=self.config,
             diffusion_time_steps=self.config['hyperparams']['diffusion_time_steps']
         )
