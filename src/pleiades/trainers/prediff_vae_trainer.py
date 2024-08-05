@@ -61,7 +61,7 @@ class Trainer:
             target_layout='h w c',
             output_image_size=128
         )
-        self.train_ds, self.test_ds = self.data_loader.write_data_summary().get_dataset()
+        self.train_ds, self.test_ds = self.data_loader.write_data_summary().get_train_test_dataset()
 
         # initialise the save directory
         self.save_dir = self._init_savedir()

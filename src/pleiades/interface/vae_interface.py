@@ -1,6 +1,6 @@
 import jax.numpy as jnp
-import flax.linen as nn
 from flax.core import FrozenDict
+import flax.linen as nn
 from jax import random
 import optax
 
@@ -10,12 +10,25 @@ import etils.epath as path
 from src.pleiades.vae.prediff_vae.vae import VAE
 from src.pleiades.utils.train_states.trainstate_with_dropout import TrainStateWithDropout
 
+from src.pleiades.data_module import DataLoader
+
+
+def _get_optimiser(config: FrozenDict) -> optax.GradientTransformation:
+    if isinstance(config['hyperparams']['learning_rate'], float):
+        return optax.adam(config['hyperparams']['learning_rate'])
+    else:
+        try:
+            optimiser = optax.adam(eval(config['hyperparams']['learning_rate'], {"optax": optax}))
+        except Exception as e:
+            raise ValueError(f"unknown learning rate type: {e} \nplease follow optax syntax.")
+        return optimiser
+
 
 class VariationalAutoencoder:
     def __init__(self,
                  ckpt_dir: dir,
                  step: None | int = None):
-        print('loading vae from %s', ckpt_dir)
+        print(f'loading vae from %s', ckpt_dir)
 
         if isinstance(ckpt_dir, str):
             ckpt_dir = path.Path(ckpt_dir)
@@ -37,7 +50,7 @@ class VariationalAutoencoder:
                                                config=ocp.args.JsonRestore()
                                            ))
 
-            self.config = FrozenDict(restored_config['config'])
+        self.config = FrozenDict(restored_config['config'])
 
         self.vae = VAE(**self.config['nn_spec'])
 
@@ -50,17 +63,16 @@ class VariationalAutoencoder:
         rngs = {'params': random.PRNGKey(0), 'dropout': random.PRNGKey(42)}
         params = self.vae.init(rngs, init_data, random.key(0), False)['params']
 
-        self.vae_optimiser = self._get_optimiser(self.config)
-        self.disc_optimiser = self._get_optimiser(self.config)
+        self.vae_optimiser = _get_optimiser(self.config)
 
         vae_state = TrainStateWithDropout.create(
             apply_fn=self.vae.apply,
             params=params,
-            tx=self.vae_optimiser,
+            tx=optax.adam(optax.cosine_decay_schedule(1e-8, 80000, 1e-11)),
             key=random.PRNGKey(42),
         )
 
-        if step:
+        if step is not None:
             restored = mngr.restore(step,
                                     args=ocp.args.Composite(
                                         vae_state=ocp.args.StandardRestore(vae_state)
@@ -71,38 +83,51 @@ class VariationalAutoencoder:
                                         vae_state=ocp.args.StandardRestore(vae_state)
                                     ))['vae_state']
 
-        self.vae = restored
+        self.vae_state = restored
 
         print('loading succeeded.')
         del mngr
-
-    def _get_optimiser(self, config: FrozenDict) -> optax.GradientTransformation:
-        if isinstance(config['hyperparams']['learning_rate'], float):
-            return optax.adam(config['hyperparams']['learning_rate'])
-        else:
-            try:
-                optimiser = optax.adam(eval(config['hyperparams']['learning_rate'], {"optax": optax}))
-            except Exception as e:
-                raise ValueError(f"unknown learning rate type: {e} \nplease follow optax syntax.")
-            return optimiser
 
     def encode(self, image_data: jnp.ndarray) -> jnp.ndarray:
 
         if jnp.ndim(image_data) != 4:
             raise ValueError('image_data must be 4-dimensional.')
 
-        image_data = self.vae.apply_fn({'params': self.vae.params},
-                                       image_data, random.PRNGKey(42),
-                                       rngs={'dropout': random.PRNGKey(0)}, method='encode')
 
-        return image_data
+
+        #def _encode(vae, image):
+            #return vae.apply_fn({'params': self.vae.params},
+            #                           image_data, random.PRNGKey(42),
+            #                           rngs={'dropout': random.PRNGKey(0)}, method='encode')
+        #    return vae.encode(jnp.array(image), random.key(0))
+
+        #image_data = nn.apply(_encode, self.vae)({'params': self.vae_state.params}, image_data,
+        #                                        rngs={'dropout': random.PRNGKey(0)})
+
+        return self.vae_state.apply_fn({'params': self.vae_state.params},
+                                          image_data, random.key(42), method='encode')
 
     def decode(self, encoded_latent: jnp.ndarray) -> jnp.ndarray:
 
         if jnp.ndim(encoded_latent) != 4:
             raise ValueError('encoded_latent must be 4-dimensional.')
 
-        decoded_image = self.vae.apply_fn({'params': self.vae.params},
+        decoded_image = self.vae_state.apply_fn({'params': self.vae_state.params},
                                           encoded_latent, method='decode')
 
         return decoded_image
+
+#vae = VariationalAutoencoder("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
+#                             + "2024-08-04/09-59-46/results/vae_ckpt", step=25000)
+
+#dataloader = DataLoader(
+#    data_dir='../exp_data/satel_array_202312bandopt00_clear.npy',
+#    batch_size=8,
+#    auto_normalisation=True
+#)
+
+#data, _ = dataloader.get_train_test_dataset()
+
+#d = vae.encode(next(data))
+#dd = vae.decode(d)
+#print(dd)

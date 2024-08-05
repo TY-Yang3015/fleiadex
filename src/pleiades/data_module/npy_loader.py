@@ -8,6 +8,23 @@ import logging
 
 
 class DataLoader:
+    """
+    the dataloader for ``.npy`` format dataset.
+
+    :var data_dir: the data directory, must be a string.
+    :var batch_size: the batch size.
+    :var rescale_max: the max value of rescaling. only applies when both rescle_max and rescale_max are set.
+    :var rescale_min: the min value of rescaling. only applies when both rescle_max and rescale_min are set.
+    :var validation_size: the validation set size.
+    :var sequenced: whether the loaded data should be sequenced.
+    :var sequence_length: the length of sequence if sequenced is True.
+    :var auto_normalisation: whether to automatically normalise the data on the channel axis. the axis will
+                            be selected based on the ``layout`` parameter.
+    :var target_layout: the layout of the target dataset. only support ``'h w c'`` and ``'c h w'``.
+                        not case-sensitive.
+    :var output_image_size: the output image size, not this not dependent on the input image size.
+
+    """
 
     def __init__(self,
                  data_dir: str,
@@ -63,6 +80,8 @@ class DataLoader:
         self.data_max = np.max(self.data)
         self.data_min = np.min(self.data)
 
+        self.__processed__ = False
+
     def _make_layout(self):
         # check the last three dims (C H W) / (H W C)
         shape = np.array(np.shape(self.data))[-3:]
@@ -91,6 +110,9 @@ class DataLoader:
         return self
 
     def _preprocess(self):
+
+        if self.__processed__:
+            return self
 
         if self.auto_normalisation:
             self.data = (self.data - self.mean) / self.std
@@ -121,6 +143,8 @@ class DataLoader:
             logging.info(f'dataset rescaled to [{np.max(self.data)}, {np.min(self.data)}]')
         else:
             logging.info('no scaling was applied.')
+
+        self.__processed__ = True
 
         return self
 
@@ -168,7 +192,7 @@ class DataLoader:
         logging.info('dataset summary read successfully.')
         return self
 
-    def get_dataset(self):
+    def get_train_test_dataset(self):
         self._preprocess()._train_val_split()
 
         train_dataset = tf.data.Dataset.from_tensor_slices(self.train_data)
@@ -238,3 +262,32 @@ class DataLoader:
                           padding=padding,
                           pad_value=pad_value,
                           format_img=format_img)
+
+    def get_complete_dataset(self,
+                             batched: bool = False,
+                             sequenced: bool = False,
+                             repeat: bool = False,
+                             as_iterator: bool = True):
+        self._preprocess()
+
+        dataset = tf.data.Dataset.from_tensor_slices(self.data).cache()
+
+        if sequenced and batched:
+            dataset = dataset.batch(self.sequence_length,
+                                    drop_remainder=True).rebatch(self.batch_size,
+                                                                 drop_remainder=True)
+        elif batched and not sequenced:
+            dataset = dataset.batch(self.batch_size, drop_remainder=True)
+        else:
+            pass
+
+        dataset = dataset.shuffle(10000).prefetch(buffer_size=tf.data.AUTOTUNE)
+
+        if repeat:
+            dataset = dataset.repeat()
+
+        if as_iterator:
+            return dataset.as_numpy_iterator()
+        else:
+            return dataset
+

@@ -1,3 +1,1 @@
-"""
-Config setup module using ml_collections.
-"""
+from src.pleiades.interface import VariationalAutoencoder

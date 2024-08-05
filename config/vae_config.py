@@ -25,7 +25,7 @@ class DataSpec:
     auto_normalisation: bool = True
     rescale_min: float | None = None
     rescale_max: float | None = None
-    dataset_dir: str = '../../src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
+    dataset_dir: str = '/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
     validation_split: float = 0.1
 
 

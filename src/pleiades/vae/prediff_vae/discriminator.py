@@ -2,7 +2,7 @@ import flax.linen as nn
 import jax.numpy as jnp
 import jax
 from einops import rearrange
-from pleiades.blocks import DownSamplerBatchNorm
+from src.pleiades.blocks import DownSamplerBatchNorm
 
 
 class DiscriminatorOutput(nn.Module):
