@@ -16,7 +16,7 @@ import etils.epath as path
 import hydra
 from omegaconf import OmegaConf
 
-import src.pleiades.vae.prediff_vae.vae as models
+from src.pleiades.vae.prediff_vae.vae import VAE
 from src.pleiades.utils import (mse, kl_divergence, ssim, discriminator_loss,
                                 TrainStateWithDropout, TrainStateWithBatchStats)
 from src.pleiades.vae.prediff_vae.discriminator import Discriminator
@@ -332,7 +332,7 @@ class Trainer:
         else:
             logging.warning('not loading config may lead to unexpected behaviour.')
 
-        self.vae = models.VAE(**self.config['nn_spec'])
+        self.vae = VAE(**self.config['nn_spec'])
 
         init_data = jnp.ones((self.config['hyperparams']['batch_size'],
                               self.config['data_spec']['image_size'],

@@ -17,9 +17,9 @@ import etils.epath as path
 import hydra
 from omegaconf import OmegaConf
 
-import src.pleiades.vae.src.vae as models
-from src.pleiades.utils import (load_dataset_for_diffusion, save_image, mse,
-                                TrainStateWithDropout, DiffusorTrainState)
+from src.pleiades.vae.prediff_vae.vae import VAE
+from src.pleiades.utils import (mse, TrainStateWithDropout, DiffusorTrainState)
+from src.pleiades.data_module import DataLoader
 from src.pleiades.diffuser.ddpm_core import DDPMCore
 from config.ldm_config import LDMConfig
 
@@ -43,7 +43,20 @@ class Trainer:
         )
 
         logging.info('initializing dataset.')
-        self.train_ds, self.test_ds = load_dataset_for_diffusion(self.config)
+        self.data_loader = DataLoader(
+            data_dir=self.config['data_spec']['dataset_dir'],
+            batch_size=self.config['hyperparams']['batch_size'],
+            validation_size=self.config['data_spec']['validation_split'],
+            rescale_max=self.config['data_spec']['rescale_max'],
+            rescale_min=self.config['data_spec']['rescale_min'],
+            sequenced=True,
+            sequence_length=self.config['data_spec']['condition_length'] + self.config['data_spec'][
+                'prediction_length'],
+            auto_normalisation=self.config['data_spec']['auto_normalisation'],
+            target_layout='h w c',
+            output_image_size=128
+        )
+        self.train_ds, self.test_ds = self.data_loader.write_data_summary().get_train_test_dataset()
 
         # initialise the save directory
         self.save_dir = self._init_savedir()
@@ -89,76 +102,32 @@ class Trainer:
         self.train_key, self.train_rng = random.split(self.train_key)
 
     def _get_next_train_batch(self):
-        single = next(self.train_ds)
-        if len(single) != self.temporal_length:
-            single = next(self.train_ds)
-        single = self.vae.apply_fn({'params': self.vae.params},
-                                   single, self.eval_rng,
-                                   rngs={'dropout': self.dropout_rng}, method='encode')
-        batch = jnp.expand_dims(single, 0)
-
-        for _ in range(self.config['hyperparams']['batch_size'] - 1):
-            single = next(self.train_ds)
-            if len(single) != self.temporal_length:
-                single = next(self.train_ds)
-            single = self.vae.apply_fn({'params': self.vae.params},
-                                       single, self.eval_rng,
-                                       rngs={'dropout': self.dropout_rng}, method='encode')
-            single = jnp.expand_dims(single, 0)
-            batch = jnp.append(batch, single, axis=0)
+        batch = next(self.train_ds)
+        b, t, _, _, _ = batch.shape
+        batch = einops.rearrange(batch, 'b t h w c -> bt h w c')
+        batch = self.vae.apply_fn({'params': self.vae.params},
+                                  batch, self.eval_rng,
+                                  rngs={'dropout': self.dropout_rng}, method='encode')
+        batch = einops.rearrange(batch, f'bt h w c -> {b} {t} h w c')
 
         return batch
 
     def _get_next_train_batch_pre_encoded(self):
-        single = next(self.train_ds)
-        if len(single) != self.temporal_length:
-            single = next(self.train_ds)
-        batch = jnp.expand_dims(single, 0)
-
-        for _ in range(self.config['hyperparams']['batch_size'] - 1):
-            single = next(self.train_ds)
-            if len(single) != self.temporal_length:
-                single = next(self.train_ds)
-            single = jnp.expand_dims(single, 0)
-            batch = jnp.append(batch, single, axis=0)
-
-        return batch
+        return next(self.train_ds)
 
     def _get_next_test_batch(self):
-        single = next(self.test_ds)
-        if len(single) != self.temporal_length:
-            single = next(self.test_ds)
-        single = self.vae.apply_fn({'params': self.vae.params},
-                                   single, self.eval_rng,
+        batch = next(self.test_ds)
+        b, t, _, _, _ = batch.shape
+        batch = einops.rearrange(batch, 'b t h w c -> bt h w c')
+        batch = self.vae.apply_fn({'params': self.vae.params},
+                                   batch, self.eval_rng,
                                    rngs={'dropout': self.dropout_rng}, method='encode')
-        batch = jnp.expand_dims(single, 0)
-
-        for _ in range(self.config['hyperparams']['batch_size'] - 1):
-            single = next(self.test_ds)
-            if len(single) != self.temporal_length:
-                single = next(self.test_ds)
-            single = self.vae.apply_fn({'params': self.vae.params},
-                                       single, self.eval_rng,
-                                       rngs={'dropout': self.dropout_rng}, method='encode')
-            single = jnp.expand_dims(single, 0)
-            batch = jnp.append(batch, single, axis=0)
+        batch = einops.rearrange(batch, f'bt h w c -> {b} {t} h w c')
 
         return batch
 
     def _get_next_test_batch_pre_coded(self):
-        single = next(self.test_ds)
-        if len(single) != self.temporal_length:
-            single = next(self.test_ds)
-        batch = jnp.expand_dims(single, 0)
-
-        for _ in range(self.config['hyperparams']['batch_size'] - 1):
-            single = next(self.test_ds)
-            if len(single) != self.temporal_length:
-                single = next(self.test_ds)
-            single = jnp.expand_dims(single, 0)
-            batch = jnp.append(batch, single, axis=0)
-
-        return batch
+        return next(self.test_ds)
 
     # @partial(jax.jit, static_argnames=('self',))
     def _train_step(self, state, batch):
@@ -199,7 +168,7 @@ class Trainer:
                                        ))
 
         vae_config = FrozenDict(restored_config['config'])
-        vae = models.VAE(**vae_config['nn_spec'])
+        vae = VAE(**vae_config['nn_spec'])
 
         init_data = jnp.ones((vae_config['hyperparams']['batch_size'],
                               vae_config['data_spec']['image_size'],
@@ -283,8 +252,8 @@ class Trainer:
 
     def _save_output(self, save_dir, prediction, step):
         if self.config['hyperparams']['save_prediction']:
-            save_image(
-                self.config, save_dir + '/predictions',
+            self.data_loader.save_image(
+                save_dir + '/predictions',
                 prediction, f'/prediction_{int(step + 1)}.png',
                 nrow=self.temporal_length
             )

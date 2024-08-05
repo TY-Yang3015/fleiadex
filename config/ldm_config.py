@@ -1,15 +1,16 @@
 from dataclasses import dataclass, field
-from backbone_specs import EarthformerSpec, Vanilla2DSpec
+from config.backbone_specs import EarthformerSpec, Vanilla2DSpec
 
 @dataclass
 class DataSpec:
     pre_encoded: bool = False
     image_size: int = 128
     image_channels: int = 4
-    clip_min: float = 0.
-    clip_max: float = 1
-    dataset_dir: str = '../../prediff_vae/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
-    validation_split: float = 0.2
+    auto_normalisation: bool = True
+    rescale_min: float | None = None
+    rescale_max: float | None = None
+    dataset_dir: str = '/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
+    validation_split: float = 0.1
     condition_length: int = 3
     prediction_length: int = 2
 
@@ -30,4 +31,4 @@ class Hyperparams:
 class LDMConfig:
     hyperparams: Hyperparams = field(default_factory=Hyperparams)
     data_spec: DataSpec = field(default_factory=DataSpec)
-    nn_spec: any = field(default_factory=EarthformerSpec)
+    nn_spec: Vanilla2DSpec = field(default_factory=Vanilla2DSpec)

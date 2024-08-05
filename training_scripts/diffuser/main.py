@@ -6,7 +6,7 @@ import hydra
 from hydra.core.config_store import ConfigStore
 import tensorflow as tf
 
-from pleiades.trainers.diffuser_trainer import Trainer
+from src.pleiades.trainers.diffuser_trainer import Trainer
 from config.ldm_config import LDMConfig
 from jax.lib import xla_bridge
 

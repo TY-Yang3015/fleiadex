@@ -2,6 +2,7 @@ import flax.linen as nn
 import jax.numpy as jnp
 import jax
 from einops import rearrange
+
 from src.pleiades.blocks import DownSamplerBatchNorm
 
 

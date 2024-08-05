@@ -1,12 +1,10 @@
 from dataclasses import dataclass
 
-from config.ldm_config import DataSpec
-
 
 @dataclass
 class EarthformerSpec:
-    sample_input_shape: tuple[int, int, int, int] = (DataSpec.prediction_length, 32, 32, 3)
-    cond_input_shape: tuple[int, int, int, int] = (DataSpec.condition_length, 32, 32, 3)
+    sample_input_shape: tuple[int, int, int, int] = (3, 32, 32, 3)
+    cond_input_shape: tuple[int, int, int, int] = (2, 32, 32, 3)
     base_units: int = 128
     bottleneck_depth: int = 8
     spatial_downsample_factor: int = 2
