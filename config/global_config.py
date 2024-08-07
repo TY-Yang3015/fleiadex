@@ -5,3 +5,4 @@ from dataclasses import dataclass, field
 class GlobalConfig:
     use_which_gpus: str = '0, 1'
     use_diffuser_backbone: str = 'vanilla2d'
+    save_num_ckpts: int = 3

@@ -303,7 +303,7 @@ class Trainer:
             )
 
             save_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/ckpt'))
-            save_options = ocp.CheckpointManagerOptions(max_to_keep=5,
+            save_options = ocp.CheckpointManagerOptions(max_to_keep=self.config['global_config']['save_num_ckpts'],
                                                         save_interval_steps=self.config['hyperparams']['ckpt_freq'],
                                                         )
 
