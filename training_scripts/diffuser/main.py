@@ -4,7 +4,7 @@ from hydra.core.config_store import ConfigStore
 import tensorflow as tf
 import os
 
-from src.pleiades.trainers.diffuser_trainer import Trainer
+from src.pleiades.trainers.diffuser_trainer_with_constants import Trainer
 from config.ldm_config import LDMConfig
 
 
