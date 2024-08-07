@@ -28,18 +28,29 @@ the core interface and sampling manager.
 This is used for some unique error names. You can add custom errors here. 
 
 ## `nn_models` Folder
-- ### `diffuser_backbones` Subfolder
+
+### `diffuser_backbones` Subfolder
 
 This contains the [EarthFormer](https://arxiv.org/abs/2207.05833)-based UNet following the [PreDiff](https://arxiv.org/abs/2307.10422)
 paper, which functions as the backbone of the latent diffusion model. **The `defualt_factory.py` file is the only place
 where you can change the configuration of the `EarthFormer-UNet`**. The `vanilla_unet2d.py` file contains a 2d u-net with
 attentions in all stages.
 
+### `predictor` Subfolder
+
+This contains the predictor for binary map of the thunderstorm prediction and radar signal.
+
+### `vae` Subfolder
+
+This contains the variational autoencoder with a adversarial (GAN) loss.
+
+## `trainers` Folder
+
+All trainers for three components are stored here. **One should access the trainers only with `get_xxxxx_trainer`
+functions.**
+
 ## `utils` Folder
 
-This folder contains all essential utility functions. The loss functions are maintained in the `loss.py` file.
-Some custom `TrainState` for `BatchNorm` and `DropOut` are also defined here to prevent redundancy. 
-
-## `vae` Folder
-
-The entire VAE is built here, with the training interface included in the `vae_trainer.py` file.
+This folder contains all essential utility functions. The loss functions are maintained in the `loss_lib` submodule.
+Custom `TrainState`s are stored in `train_states` submodule. The metric functions are contained in the `metric_lib`
+submodule. 
