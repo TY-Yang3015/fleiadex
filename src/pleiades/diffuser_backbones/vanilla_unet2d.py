@@ -194,7 +194,7 @@ class VanillaUNet2D(nn.Module):
         self.up_samplers = up_samplers
 
         if self.merge_temporal_dim_and_image_channels:
-            self.extra_projection = nn.Dense((self.cond_input_shape[0] + self.cond_input_shape[1])
+            self.extra_projection = nn.Dense((self.cond_input_shape[0] + self.sample_input_shape[0])
                                              * self.cond_input_shape[-1])
 
         self.final_projection = nn.Dense(self.cond_input_shape[-1])
@@ -260,13 +260,13 @@ class VanillaUNet2D(nn.Module):
         if self.merge_temporal_dim_and_image_channels:
             x = self.extra_projection(x)
             x = x.reshape(x.shape[0], x.shape[1], x.shape[2],
-                          (self.cond_input_shape[0] + self.cond_input_shape[1]), self.cond_input_shape[-1])
+                          (self.cond_input_shape[0] + self.sample_input_shape[0]), self.cond_input_shape[-1])
             x = rearrange(x, 'b w h t c -> b t w h c')
 
         x = self.final_projection(x[:, self.cond_input_shape[0]:, ...])
         return x
 
 
-print(VanillaUNet2D((5, 16, 16, 4), (5, 16, 16, 4), 4, (2, 2))
-      .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros((10, 5, 16, 16, 4)), jnp.zeros(10),
-                False, depth=1, console_kwargs={'width': 150}))
+# print(VanillaUNet2D((3, 16, 16, 4), (2, 16, 16, 4), 4, (2, 2))
+#     .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 3, 16, 16, 4)), jnp.zeros((10, 2, 16, 16, 4)), jnp.zeros(10),
+#                False, depth=1, console_kwargs={'width': 150}))

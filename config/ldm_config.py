@@ -4,8 +4,8 @@ from config.global_config import GlobalConfig
 
 @dataclass
 class DataSpec:
-    pre_encoded: bool = False
-    image_size: int = 128
+    pre_encoded: bool = True
+    image_size: int = 16
     image_channels: int = 4
     auto_normalisation: bool = True
     rescale_min: float | None = None

@@ -64,7 +64,7 @@ class Trainer:
                 'prediction_length'],
             auto_normalisation=self.config['data_spec']['auto_normalisation'],
             target_layout='h w c',
-            output_image_size=128
+            output_image_size=self.config['data_spec']['image_size']
         )
         self.train_ds, self.test_ds = self.data_loader.write_data_summary().get_train_test_dataset()
 
@@ -114,11 +114,11 @@ class Trainer:
     def _get_next_train_batch(self):
         batch = next(self.train_ds)
         b, t, _, _, _ = batch.shape
-        batch = einops.rearrange(batch, 'b t h w c -> bt h w c')
+        batch = einops.rearrange(batch, 'b t h w c -> (b t) h w c')
         batch = self.vae.apply_fn({'params': self.vae.params},
                                   batch, self.eval_rng,
                                   rngs={'dropout': self.dropout_rng}, method='encode')
-        batch = einops.rearrange(batch, f'bt h w c -> {b} {t} h w c')
+        batch = batch.reshape(b, t, batch.shape[1], batch.shape[2], batch.shape[3])
 
         return batch
 
@@ -128,11 +128,11 @@ class Trainer:
     def _get_next_test_batch(self):
         batch = next(self.test_ds)
         b, t, _, _, _ = batch.shape
-        batch = einops.rearrange(batch, 'b t h w c -> bt h w c')
+        batch = einops.rearrange(batch, 'b t h w c -> (b t) h w c')
         batch = self.vae.apply_fn({'params': self.vae.params},
                                    batch, self.eval_rng,
                                    rngs={'dropout': self.dropout_rng}, method='encode')
-        batch = einops.rearrange(batch, f'bt h w c -> {b} {t} h w c')
+        batch = batch.reshape(b, t, batch.shape[1], batch.shape[2], batch.shape[3])
 
         return batch
 
@@ -273,12 +273,16 @@ class Trainer:
         shutil.rmtree(directory)
         os.makedirs(directory)
 
-    def train(self):
+    def train(self, force_visualisation=True):
         if self.config['data_spec']['pre_encoded'] is True:
             if self.__vae_ready__ is True:
                 logging.warning('since the data is pre-encoded, the loaded VAE will be ignored.')
                 del self.vae
-            logging.warning('visualisation will be disabled.')
+
+            if force_visualisation:
+                logging.warning('visualisation was forced to be enabled. may cause unexpected behaviour.')
+            else:
+                logging.warning('visualisation will be disabled.')
 
             logging.info('initializing model.')
             init_data = jnp.ones((self.config['hyperparams']['batch_size'],
@@ -329,6 +333,12 @@ class Trainer:
 
                 metrics, prediction = self._evaluate_pre_encoded(
                     state.params, state.consts, current_test)
+
+                if force_visualisation:
+                    self._save_output(self.save_dir, prediction, step)
+
+                    if (step % 1000 == 0) and (step != 0):
+                        self._clear_result()
 
                 logging.info(
                     'step: {}, loss: {:.4f}, mse: {:.4f}'.format(

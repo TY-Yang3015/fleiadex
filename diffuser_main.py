@@ -16,9 +16,9 @@ cs.store(name='ldm_config', node=LDMConfig)
 def execute(config: LDMConfig) -> None:
     os.environ['CUDA_VISIBLE_DEVICE'] = config.global_config.use_which_gpus
     trainer = get_diffuser_trainer(config)
-    trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
-                          "2024-07-27/16-43-15/results/vae_ckpt")
-    trainer.train()
+    #trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
+    #                      "2024-07-27/16-43-15/results/vae_ckpt")
+    trainer.train(True)
 
 
 def main(argv):

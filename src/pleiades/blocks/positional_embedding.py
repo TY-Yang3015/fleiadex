@@ -36,9 +36,16 @@ class PositionalEmbedding(nn.Module):
         :return: the output with positional embedding added to the last four dimensions.
         """
         if self.mode == 't+h+w':
-            embedding = (x + self.t_embed(self.t_index).reshape(self.t_dim, 1, 1, self.embed_dim)
-                         * self.h_embed(self.h_index).reshape(1, self.h_dim, 1, self.embed_dim)
-                         * self.w_embed(self.w_index).reshape(1, 1, self.w_dim, self.embed_dim))
+            if x.ndim == 4:
+                embedding = (x + self.t_embed(self.t_index).reshape(self.t_dim, 1, 1, self.embed_dim)
+                             * self.h_embed(self.h_index).reshape(1, self.h_dim, 1, self.embed_dim)
+                             * self.w_embed(self.w_index).reshape(1, 1, self.w_dim, self.embed_dim))
+            elif x.ndim == 5:
+                embedding = (x + self.t_embed(self.t_index).reshape(self.t_dim, 1, 1, self.embed_dim)
+                             * self.h_embed(self.h_index).reshape(1, self.h_dim, 1, self.embed_dim)
+                             * self.w_embed(self.w_index).reshape(1, 1, self.w_dim, self.embed_dim))
+            else:
+                raise ValueError('input must be 4d or 5d.')
             return embedding
 
 

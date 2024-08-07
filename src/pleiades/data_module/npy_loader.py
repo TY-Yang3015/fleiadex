@@ -202,15 +202,17 @@ class DataLoader:
         val_dataset = val_dataset.cache()
 
         if self.sequenced:
-            self.train_dataset = train_dataset.batch(self.sequence_length,
-                                                     drop_remainder=True)
-            self.train_dataset = val_dataset.rebatch(self.batch_size,
-                                                     drop_remainder=True)
+            self.train_dataset = train_dataset.batch(self.sequence_length, drop_remainder=True)
+            self.train_dataset = self.train_dataset.batch(self.batch_size,
+                                                          drop_remainder=True)
+            #self.train_dataset = val_dataset.rebatch(self.batch_size,
+            #                                         drop_remainder=True)
 
-            self.val_dataset = val_dataset.batch(self.sequence_length,
-                                                 drop_remainder=True)
-            self.val_dataset = val_dataset.rebatch(self.batch_size,
-                                                   drop_remainder=True)
+            self.val_dataset = val_dataset.batch(self.sequence_length, drop_remainder=True)
+            self.val_dataset = self.val_dataset.batch(self.batch_size,
+                                                      drop_remainder=True)
+            #self.val_dataset = val_dataset.rebatch(self.batch_size,
+            #                                       drop_remainder=True)
 
         else:
             self.train_dataset = train_dataset.batch(self.batch_size,
@@ -274,8 +276,8 @@ class DataLoader:
 
         if sequenced and batched:
             dataset = dataset.batch(self.sequence_length,
-                                    drop_remainder=True).rebatch(self.batch_size,
-                                                                 drop_remainder=True)
+                                    drop_remainder=True).batch(self.batch_size,
+                                                               drop_remainder=True)
         elif batched and not sequenced:
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
         else:
@@ -291,3 +293,12 @@ class DataLoader:
         else:
             return dataset
 
+#dataloader = DataLoader(
+#    data_dir='/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy',
+#    batch_size=10,
+#    sequenced=True,
+#    sequence_length=12,
+#    output_image_size=16
+# )
+
+# print(next(dataloader.get_train_test_dataset()[0]).shape)
