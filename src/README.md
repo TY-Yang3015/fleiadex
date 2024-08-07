@@ -28,7 +28,7 @@ the core interface and sampling manager.
 This is used for some unique error names. You can add custom errors here. 
 
 ## `nn_models` Folder
-### `diffuser_backbones` Folder
+- ### `diffuser_backbones` Subfolder
 
 This contains the [EarthFormer](https://arxiv.org/abs/2207.05833)-based UNet following the [PreDiff](https://arxiv.org/abs/2307.10422)
 paper, which functions as the backbone of the latent diffusion model. **The `defualt_factory.py` file is the only place
