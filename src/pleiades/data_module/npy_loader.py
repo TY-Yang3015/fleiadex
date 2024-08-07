@@ -280,8 +280,10 @@ class DataLoader:
                                                                drop_remainder=True)
         elif batched and not sequenced:
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
-        else:
+        elif not batched and not sequenced:
             pass
+        else:
+            raise ValueError('batched must be True for sequencing.')
 
         dataset = dataset.shuffle(10000).prefetch(buffer_size=tf.data.AUTOTUNE)
 

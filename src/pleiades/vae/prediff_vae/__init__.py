@@ -1,0 +1,1 @@
+from src.pleiades.vae.prediff_vae.vae import VAE

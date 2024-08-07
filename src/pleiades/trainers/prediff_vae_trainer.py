@@ -10,6 +10,7 @@ from jax.lib import xla_bridge
 import jax.numpy as jnp
 import optax
 from clu import platform
+import tensorflow as tf
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -17,7 +18,7 @@ import etils.epath as path
 import hydra
 from omegaconf import OmegaConf
 
-from src.pleiades.vae.prediff_vae.vae import VAE
+from src.pleiades.vae import VAE
 from src.pleiades.utils import (mse, kl_divergence, ssim, discriminator_loss,
                                         TrainStateWithDropout, TrainStateWithBatchStats)
 from src.pleiades.vae.prediff_vae.discriminator import Discriminator
@@ -29,6 +30,8 @@ from config.vae_config import VAEConfig
 class Trainer:
 
     def __init__(self, config: VAEConfig):
+        tf.config.experimental.set_visible_devices([], 'GPU')
+
         logging.info(f'JAX backend: {xla_bridge.get_backend().platform}')
 
         logging.info(f'JAX process: {jax.process_index() + 1} / {jax.process_count()}')

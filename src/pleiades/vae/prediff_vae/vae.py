@@ -138,14 +138,3 @@ class VAE(nn.Module):
 
 # print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
 #                  jax.random.PRNGKey(1), False, console_kwargs={'width': 300}, depth=1))
-
-
-def get_vae_instance(config: flax.core.FrozenDict) -> VAE:
-    """
-    instantiate a VAE object.
-
-    :param config: flax.core.FrozenDict, the config dict.
-
-    :return: a VAE object with the specified configuration.
-    """
-    return VAE(**config)

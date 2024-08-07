@@ -7,7 +7,7 @@ class PositionalEmbedding(nn.Module):
     """
     the positional embedder with layers to learn.
 
-    :cvar input_shape: the specified input shape. **must be 4d!**
+    :cvar input_shape: the specified input shape. **must be 4d!** for 5d input, give the last 4 dims.
     :cvar mode: the embedding mode. only ``t+h+w`` is supported at the moment.
     """
 
@@ -32,7 +32,7 @@ class PositionalEmbedding(nn.Module):
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
-        :param x: the input jax array.
+        :param x: the input jax array. **must be 4d or 5d**.
         :return: the output with positional embedding added to the last four dimensions.
         """
         if self.mode == 't+h+w':

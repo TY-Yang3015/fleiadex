@@ -1,4 +1,3 @@
-import jax
 from flax.training import train_state
 
 

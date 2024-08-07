@@ -1,15 +1,13 @@
 import jax.numpy as jnp
 from flax.core import FrozenDict
-import flax.linen as nn
 from jax import random
 import optax
 
 import orbax.checkpoint as ocp
 import etils.epath as path
 
-from src.pleiades.vae.prediff_vae.vae import VAE
-from src.pleiades.utils.train_states.trainstate_with_dropout import TrainStateWithDropout
-from src.pleiades.data_module import DataLoader
+from src.pleiades.vae import VAE
+from src.pleiades.utils import TrainStateWithDropout
 
 
 def _get_optimiser(config: FrozenDict) -> optax.GradientTransformation:
