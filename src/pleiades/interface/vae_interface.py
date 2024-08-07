@@ -6,7 +6,7 @@ import optax
 import orbax.checkpoint as ocp
 import etils.epath as path
 
-from src.pleiades.vae import VAE
+from src.pleiades.nn_models import VAE
 from src.pleiades.utils import TrainStateWithDropout
 
 

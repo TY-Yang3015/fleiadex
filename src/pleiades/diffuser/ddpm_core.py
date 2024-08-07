@@ -4,8 +4,8 @@ import jax
 from flax.core import FrozenDict
 
 from src.pleiades.diffuser.ddpm_utils import DDPMManager
-from src.pleiades.diffuser_backbones.earthformer_unet import EarthformerUNet
-from src.pleiades.diffuser_backbones.vanilla_unet2d import VanillaUNet2D
+from src.pleiades.nn_models.diffuser_backbones.earthformer_unet import EarthformerUNet
+from src.pleiades.nn_models.diffuser_backbones import VanillaUNet2D
 
 
 class DDPMCore(nn.Module):

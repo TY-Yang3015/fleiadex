@@ -1,10 +1,9 @@
-import flax.core
 import flax.linen as nn
 import jax.numpy as jnp
 import jax
 
-from src.pleiades.vae.prediff_vae.decoder import Decoder
-from src.pleiades.vae.prediff_vae.encoder import Encoder
+from src.pleiades.nn_models.vae.prediff_vae.decoder import Decoder
+from src.pleiades.nn_models.vae.prediff_vae.encoder import Encoder
 
 
 class VAE(nn.Module):

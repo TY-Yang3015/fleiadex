@@ -1,1 +1,1 @@
-from src.pleiades.interface import VariationalAutoencoder
+from src.pleiades import VariationalAutoencoder

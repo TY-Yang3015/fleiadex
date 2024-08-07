@@ -18,10 +18,10 @@ import etils.epath as path
 import hydra
 from omegaconf import OmegaConf
 
-from src.pleiades.vae import VAE
+from src.pleiades.nn_models import VAE
 from src.pleiades.utils import (mse, kl_divergence, ssim, discriminator_loss,
                                         TrainStateWithDropout, TrainStateWithBatchStats)
-from src.pleiades.vae.prediff_vae.discriminator import Discriminator
+from src.pleiades.nn_models import Discriminator
 from src.pleiades.data_module import DataLoader
 
 from config.vae_config import VAEConfig

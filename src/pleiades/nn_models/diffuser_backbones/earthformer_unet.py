@@ -1,15 +1,11 @@
-from functools import partial
-
 import flax.linen as nn
 import jax.numpy as jnp
-import jax
 from dataclasses import field
 
 from src.pleiades.blocks import (ObservationalMask, Projector, TimeEmbeddingInit,
                                  TimeEmbedding, PositionalEmbedding, CuboidAttentionBlock,
                                  PatchMerge3D, UpSampler3D)
-from src.pleiades.diffuser_backbones.default_factories import DefaultFactory
-from src.pleiades.errors import DimensionMismatchError, StructureError
+from src.pleiades.nn_models.diffuser_backbones.default_factories import DefaultFactory
 
 
 # @partial(nn.jit, static_argnames=('block_cuboid_sizes'))

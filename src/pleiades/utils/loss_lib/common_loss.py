@@ -25,11 +25,3 @@ def binary_cross_entropy_with_logits(logits, labels):
     return -jnp.sum(
         labels * logits + (1.0 - labels) * jnp.log(-jnp.expm1(logits))
     )
-
-
-def discriminator_loss(fake_judgement, origin_judgement):
-    loss = -jnp.log(origin_judgement) - jnp.log(1 - fake_judgement)
-    return jnp.minimum(jnp.mean(loss), 1000)
-
-
-

@@ -2,11 +2,10 @@ import shutil
 
 import jax.sharding
 from absl import logging
-from functools import partial
 import os
 from flax import linen as nn
 from flax.core import FrozenDict
-from jax import random, jit, grad
+from jax import random
 import jax.numpy as jnp
 import einops
 import optax
@@ -20,7 +19,7 @@ import etils.epath as path
 import hydra
 from omegaconf import OmegaConf
 
-from src.pleiades.vae import VAE
+from src.pleiades.nn_models import VAE
 from src.pleiades.utils import (mse, TrainStateWithDropout, DiffusorTrainState)
 from src.pleiades.data_module import DataLoader
 from src.pleiades.diffuser import DDPMCore
