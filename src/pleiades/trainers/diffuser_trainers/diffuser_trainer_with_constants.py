@@ -217,15 +217,17 @@ class Trainer:
             return {'mse': mse_loss, 'loss': mse_loss}
 
         def evaluate(diffuser):
-            predictions = diffuser.generate_prediction(test_batch[:, :self.config['data_spec']['condition_length']],
-                                                       self.eval_rng)
+            #predictions = diffuser.generate_prediction(test_batch[:, :self.config['data_spec']['condition_length']],
+            #                                           self.eval_rng)
 
-            predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], predictions],
-                                          axis=1)
+            #predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], predictions],
+            #                              axis=1)
 
-            predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
-            predictions = self.vae.apply_fn({'params': self.vae.params},
-                                            predictions, method='decode')
+            #predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
+            #predictions = self.vae.apply_fn({'params': self.vae.params},
+            #                                predictions, method='decode')
+
+            predictions = None
 
             pred, true = diffuser.apply({'params': params, 'constants': consts},
                                         test_batch, self.eval_rng, False,
@@ -337,7 +339,7 @@ class Trainer:
                     state.params, state.consts, current_test)
 
                 if force_visualisation:
-                    self._save_output(self.save_dir, prediction, step)
+                    # self._save_output(self.save_dir, prediction, step)
 
                     if (step % 1000 == 0) and (step != 0):
                         self._clear_result()

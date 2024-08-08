@@ -25,7 +25,7 @@ from config.vae_config import VAEConfig
 
 class Trainer:
 
-    def __init__(self, config: VAEConfig):
+    def __init__(self, config: VAEConfsig):
         tf.config.experimental.set_visible_devices([], 'GPU')
 
         logging.info(f'JAX backend: {xla_bridge.get_backend().platform}')

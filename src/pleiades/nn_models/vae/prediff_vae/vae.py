@@ -136,4 +136,4 @@ class VAE(nn.Module):
 
 
 # print(VAE().tabulate(jax.random.PRNGKey(0), jnp.ones((10, 128, 128, 4)),
-#                  jax.random.PRNGKey(1), False, console_kwargs={'width': 300}, depth=1))
+#                  jax.random.PRNGKey(1), False, console_kwargs={'width': 300}, depth=2))

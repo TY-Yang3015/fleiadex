@@ -12,7 +12,7 @@ cs.store(name='ldm_config', node=LDMConfig)
 
 @hydra.main(version_base=None, config_name="ldm_config")
 def execute(config: LDMConfig) -> None:
-    os.environ['CUDA_VISIBLE_DEVICE'] = config.global_config.use_which_gpus
+    os.environ['CUDA_VISIBLE_DEVICES'] = config.global_config.use_which_gpus
     from src.pleiades.trainers import get_diffuser_trainer
     trainer = get_diffuser_trainer(config)
     #trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"

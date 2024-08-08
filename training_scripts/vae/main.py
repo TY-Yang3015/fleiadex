@@ -11,7 +11,7 @@ cs.store(name='vae_config', node=VAEConfig)
 
 @hydra.main(version_base=None, config_name="vae_config")
 def execute(config: VAEConfig) -> None:
-    os.environ['CUDA_VISIBLE_DEVICE'] = config.global_config.use_which_gpus
+    os.environ['CUDA_VISIBLE_DEVICES'] = config.global_config.use_which_gpus
     import src.pleiades.trainers.vae_trainers.prediff_vae_trainer as train
     trainer = train.Trainer(config)
     #trainer.load_vae_from("/home/arezy/Desktop/ProjectPleiades/training_scripts/vae/outputs/"
