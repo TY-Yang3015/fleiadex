@@ -1,14 +1,14 @@
 # Module Structure of `pleiades`
 
-This README file should give you a overview of the project structure. 
+This README file should give you a overview of the project structure.
 
 `pleiades` takes a modular design approach. All components are designated such that can be easily rewritten or replaced.
 
 
 ## `blocks` Folder
 
-This folder contains all building blocks of the neural network, i.e. the `flax.linen.Module` subclasses. Most of the 
-blocks come with documentation written in `restructuredText` template, compatible with `PyCharm`. 
+This folder contains all building blocks of the neural network, i.e. the `flax.linen.Module` subclasses. Most of the
+blocks come with documentation written in `restructuredText` template, compatible with `PyCharm`.
 
 ## `data_module` Folder
 
@@ -19,13 +19,13 @@ More features will be added soon.
 
 ## `diffuser` Folder
 
-This folder currently only contains the [DDPM](https://arxiv.org/abs/2006.11239)-based diffusion interface. 
-The training interface is included in `diffuser_trainer.py` file. `ddpm_core.py` and `ddpm_utils.py` contain 
+This folder currently only contains the [DDPM](https://arxiv.org/abs/2006.11239)-based diffusion interface.
+The training interface is included in `diffuser_trainer.py` file. `ddpm_core.py` and `ddpm_utils.py` contain
 the core interface and sampling manager.
 
 ## `errors` Folder
 
-This is used for some unique error names. You can add custom errors here. 
+This is used for some unique error names. You can add custom errors here.
 
 ## `nn_models` Folder
 
@@ -53,4 +53,4 @@ functions.**
 
 This folder contains all essential utility functions. The loss functions are maintained in the `loss_lib` submodule.
 Custom `TrainState`s are stored in `train_states` submodule. The metric functions are contained in the `metric_lib`
-submodule. 
+submodule.

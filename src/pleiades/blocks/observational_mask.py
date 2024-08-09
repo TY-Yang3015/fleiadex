@@ -10,6 +10,7 @@ class ObservationalMask(nn.Module):
 
     :cvar input_length: the length of the contextual input sequence.
     """
+
     input_length: int
 
     @nn.compact
@@ -20,8 +21,9 @@ class ObservationalMask(nn.Module):
         where the added channel is the observational mask.
         """
         observation_indicator = jnp.ones_like(x[..., :1])
-        observation_indicator.at[:, self.input_length:, ...].set(0.)
+        observation_indicator.at[:, self.input_length :, ...].set(0.0)
         return jnp.concatenate([x, observation_indicator], axis=-1)
 
-#key = jax.random.PRNGKey(0)
-#print(ObservationalMask(5).tabulate(key, jnp.zeros((10, 5, 64, 64, 256))))
+
+# key = jax.random.PRNGKey(0)
+# print(ObservationalMask(5).tabulate(key, jnp.zeros((10, 5, 64, 64, 256))))

@@ -1,31 +1,31 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.1'
+VERSION = "0.0.1"
 
 requirements = [
-    'tensorflow',
-    'jax[cuda12]',  # change this if you wish to run on CPU/TPU.
-    'jaxlib',
-    'pillow',
-    'hydra-core',
-    'optax',
-    'flax',
-    'einops',
-    'clu'
+    "tensorflow",
+    "jax[cuda12]",  # change this if you wish to run on CPU/TPU.
+    "jaxlib",
+    "pillow",
+    "hydra-core",
+    "optax",
+    "flax",
+    "einops",
+    "clu",
 ]
 
 setup(
-    name='pleiadex',
+    name="pleiadex",
     version=VERSION,
-    python_requires='>=3.10',
-    liscense='Mozilla Public License Version 2.0',
-
+    python_requires=">=3.10",
+    liscense="Mozilla Public License Version 2.0",
     packages=find_packages(
         where="src",
         exclude=(
-            'legacy',
-            'outputs',
-            'literature',)
+            "legacy",
+            "outputs",
+            "literature",
+        ),
     ),
     package_dir={"": "src"},
     zip_safe=True,

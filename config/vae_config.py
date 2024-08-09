@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from config.global_config import GlobalConfig
 
+
 @dataclass
 class Hyperparams:
     learning_rate: float | str = "optax.cosine_decay_schedule(1e-4, 80000, 1e-7)"
     batch_size: int = 8
     step: int = 100000
-    kld_weight: float = 0.
+    kld_weight: float = 0.0
     disc_weight: float = 1e-3
     discriminator_start_after: int = 50000
 
@@ -25,7 +26,7 @@ class DataSpec:
     auto_normalisation: bool = True
     rescale_min: float | None = None
     rescale_max: float | None = None
-    dataset_dir: str = '/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
+    dataset_dir: str = "/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy"
     validation_split: float = 0.1
 
 
@@ -42,9 +43,9 @@ class VAENNSpec:
     encoder_post_attention_resnet_depth: int = 4
     encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
-    encoder_down_sample_activation: str = 'softplus'
-    encoder_post_attention_activation: str = 'softplus'
-    encoder_final_activation: str = 'softplus'
+    encoder_down_sample_activation: str = "softplus"
+    encoder_post_attention_activation: str = "softplus"
+    encoder_final_activation: str = "softplus"
 
     decoder_latent_channels: int = 4
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
@@ -54,7 +55,7 @@ class VAENNSpec:
     decoder_attention_use_qkv_bias: bool = False
     decoder_attention_use_dropout: bool = True
     decoder_attention_dropout_rate: float = 0.2
-    decoder_up_sampler_type: str = 'conv_trans'
+    decoder_up_sampler_type: str = "conv_trans"
     decoder_use_memory_efficient_attention: bool = True
     decoder_pre_output_resnet_depth: int = 4
     decoder_use_final_linear_projection: bool = False

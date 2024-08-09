@@ -11,14 +11,16 @@ import math
 import jax.numpy as jnp
 
 
-def save_image(data_loader,
-               save_dir: str,
-               ndarray: jnp.ndarray,
-               fp: any,
-               nrow: int = 8,
-               padding: int = 2,
-               pad_value: float = 0.0,
-               format_img: any = None):
+def save_image(
+    data_loader,
+    save_dir: str,
+    ndarray: jnp.ndarray,
+    fp: any,
+    nrow: int = 8,
+    padding: int = 2,
+    pad_value: float = 0.0,
+    format_img: any = None,
+):
     """Make a grid of images and Save it into an image file.
 
     Args:
@@ -36,13 +38,13 @@ def save_image(data_loader,
     """
 
     if not (
-            isinstance(ndarray, jnp.ndarray)
-            or (
-                    isinstance(ndarray, list)
-                    and all(isinstance(t, jnp.ndarray) for t in ndarray)
-            )
+        isinstance(ndarray, jnp.ndarray)
+        or (
+            isinstance(ndarray, list)
+            and all(isinstance(t, jnp.ndarray) for t in ndarray)
+        )
     ):
-        raise TypeError(f'array_like of tensors expected, got {type(ndarray)}')
+        raise TypeError(f"array_like of tensors expected, got {type(ndarray)}")
 
     ndarray = jnp.asarray(ndarray)
 
@@ -80,14 +82,14 @@ def save_image(data_loader,
             if k >= nmaps:
                 break
             grid = grid.at[
-                   y * height + padding: (y + 1) * height,
-                   x * width + padding: (x + 1) * width,
-                   ].set(ndarray[k])
+                y * height + padding : (y + 1) * height,
+                x * width + padding : (x + 1) * width,
+            ].set(ndarray[k])
             k = k + 1
 
     # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
     ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
-    im = Image.fromarray(ndarr.copy(), mode='RGB')
+    im = Image.fromarray(ndarr.copy(), mode="RGB")
     im.save(save_dir + fp, format=format_img)
 
 
@@ -110,17 +112,19 @@ class DataLoader:
 
     """
 
-    def __init__(self,
-                 data_dir: str,
-                 batch_size: int,
-                 rescale_max: float | None = None,
-                 rescale_min: float | None = None,
-                 validation_size: float = 0.2,
-                 sequenced: bool = False,
-                 sequence_length: int = 1,
-                 auto_normalisation: bool = True,
-                 target_layout: str = 'h w c',
-                 output_image_size: int = 128):
+    def __init__(
+        self,
+        data_dir: str,
+        batch_size: int,
+        rescale_max: float | None = None,
+        rescale_min: float | None = None,
+        validation_size: float = 0.2,
+        sequenced: bool = False,
+        sequence_length: int = 1,
+        auto_normalisation: bool = True,
+        target_layout: str = "h w c",
+        output_image_size: int = 128,
+    ):
 
         self.data_dir = data_dir
         self.data = np.load(data_dir)
@@ -141,12 +145,12 @@ class DataLoader:
 
         self._make_layout()
 
-        if len(self.target_layout.split(' ')) != 3:
-            raise ValueError('target layout is only required for the last'
-                             '3 channels.')
+        if len(self.target_layout.split(" ")) != 3:
+            raise ValueError(
+                "target layout is only required for the last" "3 channels."
+            )
 
-        if (self.target_layout.split(' ')[-1]
-                == 'c'.casefold()):
+        if self.target_layout.split(" ")[-1] == "c".casefold():
             self.std = np.std(self.data, axis=(0, 1, 2), ddof=1)
             self.mean = np.mean(self.data, axis=(0, 1, 2))
         else:
@@ -156,8 +160,7 @@ class DataLoader:
         size = len(self.data)
 
         if self.validation_size == 0:
-            raise ValueError('validation size must'
-                             'non-zero.')
+            raise ValueError("validation size must" "non-zero.")
         else:
             self.validation_length = int(self.validation_size * size)
 
@@ -170,27 +173,24 @@ class DataLoader:
         # check the last three dims (C H W) / (H W C)
         shape = np.array(np.shape(self.data))[-3:]
         if shape[0] == shape[1]:
-            if (self.target_layout.split(' ')[-1]
-                    == 'c'.casefold()):
+            if self.target_layout.split(" ")[-1] == "c".casefold():
                 pass
             else:
-                self.data = rearrange(self.data,
-                                      'b w h c -> b c w h')
+                self.data = rearrange(self.data, "b w h c -> b c w h")
         elif shape[1] == shape[2]:
-            if (self.target_layout.split(' ')[0]
-                    == 'c'.casefold()):
+            if self.target_layout.split(" ")[0] == "c".casefold():
                 pass
             else:
-                self.data = rearrange(self.data,
-                                      'b c w h -> b w h c')
+                self.data = rearrange(self.data, "b c w h -> b w h c")
         elif shape[0] != shape[1] != shape[2]:
-            raise ValueError('shape mismatch, only '
-                             'square images are supported.')
+            raise ValueError("shape mismatch, only " "square images are supported.")
         else:
-            raise ValueError('unable to make layout, '
-                             'please set target_layout to '
-                             'None and manually adjust the'
-                             'layout.')
+            raise ValueError(
+                "unable to make layout, "
+                "please set target_layout to "
+                "None and manually adjust the"
+                "layout."
+            )
         return self
 
     def _preprocess(self):
@@ -201,79 +201,85 @@ class DataLoader:
         if self.auto_normalisation:
             self.data = (self.data - self.mean) / self.std
 
-        if (self.target_layout.split(' ')[-1]
-                == 'c'.casefold()):
+        if self.target_layout.split(" ")[-1] == "c".casefold():
             self.data = tf.image.resize(
                 self.data,
                 (
                     self.output_image_size,
                     self.output_image_size,
                 ),
-                method='nearest')
+                method="nearest",
+            )
         else:
             self.data = tf.image.resize(
                 self.data,
-                (self.data.shape[0],
-                 self.data.shape[1],
-                 self.output_image_size,
-                 self.output_image_size),
-                method='nearest')
+                (
+                    self.data.shape[0],
+                    self.data.shape[1],
+                    self.output_image_size,
+                    self.output_image_size,
+                ),
+                method="nearest",
+            )
 
         if not ((self.rescale_max is None) or (self.rescale_min is None)):
             self.data -= self.data_min
             self.data /= self.data_max - self.data_min
             self.data *= self.rescale_max - self.rescale_min
             self.data += self.rescale_min
-            logging.info(f'dataset rescaled to [{np.max(self.data)}, {np.min(self.data)}]')
+            logging.info(
+                f"dataset rescaled to [{np.max(self.data)}, {np.min(self.data)}]"
+            )
         else:
-            logging.info('no scaling was applied.')
+            logging.info("no scaling was applied.")
 
         self.__processed__ = True
 
         return self
 
     def _train_val_split(self):
-        self.validation_data = self.data[:self.validation_length]
-        self.train_data = self.data[self.validation_length:]
+        self.validation_data = self.data[: self.validation_length]
+        self.train_data = self.data[self.validation_length :]
 
         return self
 
-    def write_data_summary(self,
-                           save_dir: str | None = None):
+    def write_data_summary(self, save_dir: str | None = None):
 
         if save_dir is None:
             try:
-                save_dir = save_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+                save_dir = (
+                    save_dir
+                ) = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
             except Exception:
-                logging.error('failed to save the dataset spec.')
+                logging.error("failed to save the dataset spec.")
 
         summary = {}
-        summary['original_shape'] = self.origin_shape
-        summary['processed_shape'] = self.data.shape
-        summary['channel-wise_mean'] = self.mean.tolist()
-        summary['channel-wise_std'] = self.std.tolist()
-        summary['validation_size'] = self.validation_size
-        summary['validation_length'] = self.validation_length
-        summary['data_max'] = self.data_max
-        summary['data_min'] = self.data_min
+        summary["original_shape"] = self.origin_shape
+        summary["processed_shape"] = self.data.shape
+        summary["channel-wise_mean"] = self.mean.tolist()
+        summary["channel-wise_std"] = self.std.tolist()
+        summary["validation_size"] = self.validation_size
+        summary["validation_length"] = self.validation_length
+        summary["data_max"] = self.data_max
+        summary["data_min"] = self.data_min
 
-        with open(f'{save_dir}/summary.json', 'w') as f:
+        with open(f"{save_dir}/summary.json", "w") as f:
             json.dump(summary, f)
 
         return self
 
     def read_data_summary(self, json_dir: str):
-        with open(json_dir, 'r') as f:
+        with open(json_dir, "r") as f:
             summary = json.load(f)
 
-        self.mean = np.array(summary['channel-wise_mean'])
-        self.std = np.array(summary['channel-wise_std'])
-        self.validation_size = np.array(summary['validation_size'])
-        self.validation_length = np.array(summary['validation_length'])
-        self.data_max = np.array(summary['data_max'])
-        self.data_min = np.array(summary['data_min'])
+        self.mean = np.array(summary["channel-wise_mean"])
+        self.std = np.array(summary["channel-wise_std"])
+        self.validation_size = np.array(summary["validation_size"])
+        self.validation_length = np.array(summary["validation_length"])
+        self.data_max = np.array(summary["data_max"])
+        self.data_min = np.array(summary["data_min"])
 
-        logging.info('dataset summary read successfully.')
+        logging.info("dataset summary read successfully.")
         return self
 
     def get_train_test_dataset(self):
@@ -286,45 +292,62 @@ class DataLoader:
         val_dataset = val_dataset.cache()
 
         if self.sequenced:
-            self.train_dataset = train_dataset.batch(self.sequence_length, drop_remainder=True)
-            self.train_dataset = self.train_dataset.batch(self.batch_size,
-                                                          drop_remainder=True)
-            #self.train_dataset = val_dataset.rebatch(self.batch_size,
+            self.train_dataset = train_dataset.batch(
+                self.sequence_length, drop_remainder=True
+            )
+            self.train_dataset = self.train_dataset.batch(
+                self.batch_size, drop_remainder=True
+            )
+            # self.train_dataset = val_dataset.rebatch(self.batch_size,
             #                                         drop_remainder=True)
 
-            self.val_dataset = val_dataset.batch(self.sequence_length, drop_remainder=True)
-            self.val_dataset = self.val_dataset.batch(self.batch_size,
-                                                      drop_remainder=True)
-            #self.val_dataset = val_dataset.rebatch(self.batch_size,
+            self.val_dataset = val_dataset.batch(
+                self.sequence_length, drop_remainder=True
+            )
+            self.val_dataset = self.val_dataset.batch(
+                self.batch_size, drop_remainder=True
+            )
+            # self.val_dataset = val_dataset.rebatch(self.batch_size,
             #                                       drop_remainder=True)
 
         else:
-            self.train_dataset = train_dataset.batch(self.batch_size,
-                                                     drop_remainder=True)
-            self.val_dataset = val_dataset.batch(self.batch_size,
-                                                 drop_remainder=True)
+            self.train_dataset = train_dataset.batch(
+                self.batch_size, drop_remainder=True
+            )
+            self.val_dataset = val_dataset.batch(self.batch_size, drop_remainder=True)
 
-        self.train_dataset = self.train_dataset.shuffle(10000).prefetch(buffer_size=tf.data.AUTOTUNE).repeat()
-        self.val_dataset = self.val_dataset.shuffle(10000).prefetch(buffer_size=tf.data.AUTOTUNE).repeat()
+        self.train_dataset = (
+            self.train_dataset.shuffle(10000)
+            .prefetch(buffer_size=tf.data.AUTOTUNE)
+            .repeat()
+        )
+        self.val_dataset = (
+            self.val_dataset.shuffle(10000)
+            .prefetch(buffer_size=tf.data.AUTOTUNE)
+            .repeat()
+        )
 
-        return self.train_dataset.as_numpy_iterator(), self.val_dataset.as_numpy_iterator()
+        return (
+            self.train_dataset.as_numpy_iterator(),
+            self.val_dataset.as_numpy_iterator(),
+        )
 
     def reverse_preprocess(self, image):
 
-        if self.target_layout.split(' ')[-1] == 'c'.casefold():
+        if self.target_layout.split(" ")[-1] == "c".casefold():
             image = image * self.std + self.mean
-        elif self.target_layout.split(' ')[0] == 'c'.casefold():
+        elif self.target_layout.split(" ")[0] == "c".casefold():
             if self.sequenced:
-                image = rearrange(image, 'b t c h w -> b t h w c')
+                image = rearrange(image, "b t c h w -> b t h w c")
             else:
-                image = rearrange(image, 'b c h w -> b h w c')
+                image = rearrange(image, "b c h w -> b h w c")
 
             image = image * self.std + self.mean
 
             if self.sequenced:
-                image = rearrange(image, 'b t h w c -> b c t h w')
+                image = rearrange(image, "b t h w c -> b c t h w")
             else:
-                image = rearrange(image, 'b h w c -> b c h w')
+                image = rearrange(image, "b h w c -> b c h w")
 
         if not ((self.rescale_max is None) or (self.rescale_min is None)):
             image -= self.rescale_min
@@ -334,40 +357,42 @@ class DataLoader:
 
         return image
 
-    def save_image(self,
-                   save_dir,
-                   ndarray,
-                   fp,
-                   nrow=8,
-                   padding=2,
-                   pad_value=0.0,
-                   format_img=None):
+    def save_image(
+        self, save_dir, ndarray, fp, nrow=8, padding=2, pad_value=0.0, format_img=None
+    ):
 
-        return save_image(self, save_dir, ndarray,
-                          fp, nrow=nrow,
-                          padding=padding,
-                          pad_value=pad_value,
-                          format_img=format_img)
+        return save_image(
+            self,
+            save_dir,
+            ndarray,
+            fp,
+            nrow=nrow,
+            padding=padding,
+            pad_value=pad_value,
+            format_img=format_img,
+        )
 
-    def get_complete_dataset(self,
-                             batched: bool = False,
-                             sequenced: bool = False,
-                             repeat: bool = False,
-                             as_iterator: bool = True):
+    def get_complete_dataset(
+        self,
+        batched: bool = False,
+        sequenced: bool = False,
+        repeat: bool = False,
+        as_iterator: bool = True,
+    ):
         self._preprocess()
 
         dataset = tf.data.Dataset.from_tensor_slices(self.data).cache()
 
         if sequenced and batched:
-            dataset = dataset.batch(self.sequence_length,
-                                    drop_remainder=True).batch(self.batch_size,
-                                                               drop_remainder=True)
+            dataset = dataset.batch(self.sequence_length, drop_remainder=True).batch(
+                self.batch_size, drop_remainder=True
+            )
         elif batched and not sequenced:
             dataset = dataset.batch(self.batch_size, drop_remainder=True)
         elif not batched and not sequenced:
             pass
         else:
-            raise ValueError('batched must be True for sequencing.')
+            raise ValueError("batched must be True for sequencing.")
 
         dataset = dataset.shuffle(10000).prefetch(buffer_size=tf.data.AUTOTUNE)
 
@@ -379,7 +404,8 @@ class DataLoader:
         else:
             return dataset
 
-#dataloader = DataLoader(
+
+# dataloader = DataLoader(
 #    data_dir='/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy',
 #    batch_size=10,
 #    sequenced=True,

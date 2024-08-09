@@ -8,7 +8,7 @@ class DefaultFactory:
 
     @staticmethod
     def default_block_cuboid_strategy():
-        return [('l', 'l', 'l'), ('d', 'd', 'd')]
+        return [("l", "l", "l"), ("d", "d", "d")]
 
     @staticmethod
     def default_cuboid_shift_size():

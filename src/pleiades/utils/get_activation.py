@@ -17,13 +17,15 @@ def get_activation(activation):
         return nn.softmax
     elif activation == "softplus":
         return nn.softplus
-    elif activation == 'leaky_relu':
+    elif activation == "leaky_relu":
         return partial(nn.leaky_relu, negative_slope=0.1)
-    elif activation == 'elu':
+    elif activation == "elu":
         return nn.elu
     else:
-        raise NotImplementedError("only 'relu', 'sigmoid'"
-                                  ", 'tanh', 'silu', "
-                                  "'softmax', 'softplus', 'leaky_relu'"
-                                  "'gelu' and 'elu' are"
-                                  " supported.")
+        raise NotImplementedError(
+            "only 'relu', 'sigmoid'"
+            ", 'tanh', 'silu', "
+            "'softmax', 'softplus', 'leaky_relu'"
+            "'gelu' and 'elu' are"
+            " supported."
+        )

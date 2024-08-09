@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from config.backbone_specs import *
 from config.global_config import GlobalConfig
 
+
 @dataclass
 class DataSpec:
     pre_encoded: bool = True
@@ -10,7 +11,7 @@ class DataSpec:
     auto_normalisation: bool = True
     rescale_min: float | None = None
     rescale_max: float | None = None
-    dataset_dir: str = '/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
+    dataset_dir: str = "/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy"
     validation_split: float = 0.1
     condition_length: int = 3
     prediction_length: int = 2

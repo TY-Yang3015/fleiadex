@@ -1,8 +1,14 @@
 import jax.numpy as jnp
 from jax import random
-from src.pleiades.data_module.thunderstorm_dataloader.classical.satel_loader import SatelDataModule
-from src.pleiades.data_module.thunderstorm_dataloader.classical.radar_loader import RadarDataModule
-from src.pleiades.data_module.thunderstorm_dataloader.classical.ts_loader import TSDataModule
+from src.pleiades.data_module.thunderstorm_dataloader.classical.satel_loader import (
+    SatelDataModule,
+)
+from src.pleiades.data_module.thunderstorm_dataloader.classical.radar_loader import (
+    RadarDataModule,
+)
+from src.pleiades.data_module.thunderstorm_dataloader.classical.ts_loader import (
+    TSDataModule,
+)
 
 
 def normalise(x):
@@ -28,11 +34,11 @@ def timestack(data, pred_time, sample_arange):
     Xs = []
     for i in sample_arange:
         if i == 0:
-            Xs.append(X[max_shift: - pred_time])
+            Xs.append(X[max_shift:-pred_time])
         else:
-            Xs.append(X[max_shift - 6 * i: -6 * i - pred_time])
+            Xs.append(X[max_shift - 6 * i : -6 * i - pred_time])
     X = jnp.concatenate(Xs, axis=3)
-    y = y[max_shift + pred_time:]
+    y = y[max_shift + pred_time :]
     return X, y
 
 
@@ -53,13 +59,19 @@ def train_test_split(data, ratio, seed):
 
 def data_setup(num_samples, pred_time, sample_arange):
     print("Start loading data")
-    satel_dm = SatelDataModule(data_root='satel_array_')
-    radar_dm = RadarDataModule(data_root='radar_array_')
-    ts_dm = TSDataModule(data_root='satTS_array_')
+    satel_dm = SatelDataModule(data_root="satel_array_")
+    radar_dm = RadarDataModule(data_root="radar_array_")
+    ts_dm = TSDataModule(data_root="satTS_array_")
     print("End loading data")
-    satel_array = satel_dm.load_dataset(month_str='202312', num_samples = int(num_samples / 6) * 6)
-    radar_array = radar_dm.load_dataset(month_str='202312', num_samples = int(num_samples / 6) * 6)
-    TS_array = ts_dm.load_dataset(month_str='202312', num_samples = int(num_samples / 6) * 6)
+    satel_array = satel_dm.load_dataset(
+        month_str="202312", num_samples=int(num_samples / 6) * 6
+    )
+    radar_array = radar_dm.load_dataset(
+        month_str="202312", num_samples=int(num_samples / 6) * 6
+    )
+    TS_array = ts_dm.load_dataset(
+        month_str="202312", num_samples=int(num_samples / 6) * 6
+    )
 
     # Set up X and y
     X = jnp.stack((satel_array, radar_array), axis=3)

@@ -11,14 +11,16 @@ import math
 import jax.numpy as jnp
 
 
-def save_image(data_loader,
-               save_dir: str,
-               ndarray: jnp.ndarray,
-               fp: any,
-               nrow: int = 8,
-               padding: int = 2,
-               pad_value: float = 0.0,
-               format_img: any = None):
+def save_image(
+    data_loader,
+    save_dir: str,
+    ndarray: jnp.ndarray,
+    fp: any,
+    nrow: int = 8,
+    padding: int = 2,
+    pad_value: float = 0.0,
+    format_img: any = None,
+):
     """Make a grid of images and Save it into an image file.
 
     Args:
@@ -36,13 +38,13 @@ def save_image(data_loader,
     """
 
     if not (
-            isinstance(ndarray, jnp.ndarray)
-            or (
-                    isinstance(ndarray, list)
-                    and all(isinstance(t, jnp.ndarray) for t in ndarray)
-            )
+        isinstance(ndarray, jnp.ndarray)
+        or (
+            isinstance(ndarray, list)
+            and all(isinstance(t, jnp.ndarray) for t in ndarray)
+        )
     ):
-        raise TypeError(f'array_like of tensors expected, got {type(ndarray)}')
+        raise TypeError(f"array_like of tensors expected, got {type(ndarray)}")
 
     ndarray = jnp.asarray(ndarray)
 
@@ -80,14 +82,14 @@ def save_image(data_loader,
             if k >= nmaps:
                 break
             grid = grid.at[
-                   y * height + padding: (y + 1) * height,
-                   x * width + padding: (x + 1) * width,
-                   ].set(ndarray[k])
+                y * height + padding : (y + 1) * height,
+                x * width + padding : (x + 1) * width,
+            ].set(ndarray[k])
             k = k + 1
 
     # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
     ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
-    im = Image.fromarray(ndarr.copy(), mode='RGB')
+    im = Image.fromarray(ndarr.copy(), mode="RGB")
     im.save(save_dir + fp, format=format_img)
 
 
@@ -122,26 +124,28 @@ class NpyLoaderCore:
 
     """
 
-    def __init__(self,
-                 data_dir: str,
-                 batch_size: int,
-                 dir_sort_key: callable = None,
-                 rescale_max: float | None = None,
-                 rescale_min: float | None = None,
-                 validation_size: float = 0.2,
-                 sequenced: bool = False,
-                 sequence_length: int = 1,
-                 auto_normalisation: bool = True,
-                 auto_layout_adjustment: bool = True,
-                 target_layout: str = 'h w c',
-                 output_image_size: int = 128):
+    def __init__(
+        self,
+        data_dir: str,
+        batch_size: int,
+        dir_sort_key: callable = None,
+        rescale_max: float | None = None,
+        rescale_min: float | None = None,
+        validation_size: float = 0.2,
+        sequenced: bool = False,
+        sequence_length: int = 1,
+        auto_normalisation: bool = True,
+        auto_layout_adjustment: bool = True,
+        target_layout: str = "h w c",
+        output_image_size: int = 128,
+    ):
 
-        if data_dir.endswith('.npy'):
+        if data_dir.endswith(".npy"):
             self.dataset = tf.data.Dataset.from_tensor_slices(jnp.load(data_dir))
-            logging.info(f'loaded single .npy file {data_dir}.')
+            logging.info(f"loaded single .npy file {data_dir}.")
         else:
             if max_depth(data_dir) != 0:
-                raise ValueError(f'data directory should not contain any subfolders.')
+                raise ValueError(f"data directory should not contain any subfolders.")
             else:
                 npy_files_dirs = []
                 for subdir in os.listdir(data_dir):
@@ -150,29 +154,33 @@ class NpyLoaderCore:
                 if dir_sort_key is not None:
                     npy_files_dirs.sort(key=lambda x: dir_sort_key(x))
                     self.dataset = tf.data.Dataset.list_files(npy_files_dirs)
-                    self.dataset = tf.data.Dataset.map(lambda x: jnp.load(data_dir + '/' + x),
-                                                       num_parallel_calls=tf.data.AUTOTUNE)
+                    self.dataset = tf.data.Dataset.map(
+                        lambda x: jnp.load(data_dir + "/" + x),
+                        num_parallel_calls=tf.data.AUTOTUNE,
+                    )
 
                 else:
                     self.dataset = tf.data.Dataset.list_files(npy_files_dirs)
-                    self.dataset = tf.data.Dataset.map(lambda x: jnp.load(data_dir + '/' + x),
-                                                       num_parallel_calls=tf.data.AUTOTUNE)
+                    self.dataset = tf.data.Dataset.map(
+                        lambda x: jnp.load(data_dir + "/" + x),
+                        num_parallel_calls=tf.data.AUTOTUNE,
+                    )
 
         if len(next(self.dataset.as_numpy_iterator()).shape) != 3:
-            raise ValueError(f'only image or image-like data is supported, which should have 3 dimensions.')
+            raise ValueError(
+                f"only image or image-like data is supported, which should have 3 dimensions."
+            )
 
         self.target_layout = target_layout
         self.data_shape = jnp.array(jnp.shape(next(self.dataset.as_numpy_iterator())))
-        logging.info(f'received element data shape is {self.data_shape}')
+        logging.info(f"received element data shape is {self.data_shape}")
         if auto_layout_adjustment:
-            self.dataset = self.dataset.map(
-                lambda x: self._make_layout(x)
-            )
+            self.dataset = self.dataset.map(lambda x: self._make_layout(x))
         else:
             pass
 
         self.data_size = self.dataset.reduce(0, lambda x, _: x + 1)
-        logging.info(f'received total data size is {self.data_size}')
+        logging.info(f"received total data size is {self.data_size}")
 
         self.batch_size = batch_size
         self.rescale_max = rescale_max
@@ -186,24 +194,22 @@ class NpyLoaderCore:
     def _make_layout(self, element):
         # check the last three dims (C H W) / (H W C)
         if jnp.argmin(self.data_shape) == 2:
-            if (self.target_layout.split(' ')[-1]
-                    == 'c'.casefold()):
+            if self.target_layout.split(" ")[-1] == "c".casefold():
                 pass
             else:
-                element = rearrange(element,
-                                    'w h c -> c w h')
+                element = rearrange(element, "w h c -> c w h")
         elif jnp.argmin(self.data_shape) == 0:
-            if (self.target_layout.split(' ')[0]
-                    == 'c'.casefold()):
+            if self.target_layout.split(" ")[0] == "c".casefold():
                 pass
             else:
-                element = rearrange(element,
-                                    'c w h -> w h c')
+                element = rearrange(element, "c w h -> w h c")
         else:
-            raise ValueError('unable to make layout, '
-                             'please set target_layout to '
-                             'None and manually adjust the '
-                             'layout.')
+            raise ValueError(
+                "unable to make layout, "
+                "please set target_layout to "
+                "None and manually adjust the "
+                "layout."
+            )
         return element
 
     def _preprocess(self):
@@ -215,42 +221,43 @@ class NpyLoaderCore:
     def _train_val_split(self):
         pass
 
-    def write_data_summary(self,
-                           save_dir: str | None = None):
+    def write_data_summary(self, save_dir: str | None = None):
 
         if save_dir is None:
             try:
-                save_dir = save_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+                save_dir = (
+                    save_dir
+                ) = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
             except Exception:
-                logging.error('failed to save the dataset spec.')
+                logging.error("failed to save the dataset spec.")
 
         summary = {}
-        summary['original_shape'] = self.origin_shape
-        summary['processed_shape'] = self.data.shape
-        summary['channel-wise_mean'] = self.mean.tolist()
-        summary['channel-wise_std'] = self.std.tolist()
-        summary['validation_size'] = self.validation_size
-        summary['validation_length'] = self.validation_length
-        summary['data_max'] = self.data_max
-        summary['data_min'] = self.data_min
+        summary["original_shape"] = self.origin_shape
+        summary["processed_shape"] = self.data.shape
+        summary["channel-wise_mean"] = self.mean.tolist()
+        summary["channel-wise_std"] = self.std.tolist()
+        summary["validation_size"] = self.validation_size
+        summary["validation_length"] = self.validation_length
+        summary["data_max"] = self.data_max
+        summary["data_min"] = self.data_min
 
-        with open(f'{save_dir}/summary.json', 'w') as f:
+        with open(f"{save_dir}/summary.json", "w") as f:
             json.dump(summary, f)
 
         return self
 
     def read_data_summary(self, json_dir: str):
-        with open(json_dir, 'r') as f:
+        with open(json_dir, "r") as f:
             summary = json.load(f)
 
-        self.mean = np.array(summary['channel-wise_mean'])
-        self.std = np.array(summary['channel-wise_std'])
-        self.validation_size = np.array(summary['validation_size'])
-        self.validation_length = np.array(summary['validation_length'])
-        self.data_max = np.array(summary['data_max'])
-        self.data_min = np.array(summary['data_min'])
+        self.mean = np.array(summary["channel-wise_mean"])
+        self.std = np.array(summary["channel-wise_std"])
+        self.validation_size = np.array(summary["validation_size"])
+        self.validation_length = np.array(summary["validation_length"])
+        self.data_max = np.array(summary["data_max"])
+        self.data_min = np.array(summary["data_min"])
 
-        logging.info('dataset summary read successfully.')
+        logging.info("dataset summary read successfully.")
         return self
 
     def get_train_test_dataset(self):
@@ -259,32 +266,33 @@ class NpyLoaderCore:
     def reverse_preprocess(self, image):
         pass
 
-    def save_image(self,
-                   save_dir,
-                   ndarray,
-                   fp,
-                   nrow=8,
-                   padding=2,
-                   pad_value=0.0,
-                   format_img=None):
+    def save_image(
+        self, save_dir, ndarray, fp, nrow=8, padding=2, pad_value=0.0, format_img=None
+    ):
 
-        return save_image(self, save_dir, ndarray,
-                          fp, nrow=nrow,
-                          padding=padding,
-                          pad_value=pad_value,
-                          format_img=format_img)
+        return save_image(
+            self,
+            save_dir,
+            ndarray,
+            fp,
+            nrow=nrow,
+            padding=padding,
+            pad_value=pad_value,
+            format_img=format_img,
+        )
 
-    def get_complete_dataset(self,
-                             batched: bool = False,
-                             sequenced: bool = False,
-                             repeat: bool = False,
-                             as_iterator: bool = True):
+    def get_complete_dataset(
+        self,
+        batched: bool = False,
+        sequenced: bool = False,
+        repeat: bool = False,
+        as_iterator: bool = True,
+    ):
         pass
 
 
 dl = NpyLoaderCore(
-    data_dir='../exp_data/satel_array_202312bandopt00_clear.npy',
-    batch_size=1
+    data_dir="../exp_data/satel_array_202312bandopt00_clear.npy", batch_size=1
 )
 
 print(next(dl.dataset.batch(10).as_numpy_iterator()).shape)

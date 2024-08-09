@@ -3,12 +3,13 @@ import jax.numpy as jnp
 from glob import glob
 import os
 
+
 class SatelDataModule:
     def __init__(
-            self,
-            data_root,
-            input_image_size=(128, 128),
-            output_image_size=(128, 128),
+        self,
+        data_root,
+        input_image_size=(128, 128),
+        output_image_size=(128, 128),
     ):
         self.data_root = data_root
         self.input_image_size = tf.constant(input_image_size)
@@ -20,7 +21,7 @@ class SatelDataModule:
 
     def load_dataset(self, month_str, num_samples):
         data_dir = self.data_root + month_str
-        data_paths = glob('./data/'+ data_dir + "bandopt00.npy")
+        data_paths = glob("./data/" + data_dir + "bandopt00.npy")
         dataset = []
         for path in data_paths:
             dataset.append((jnp.load(path)[:num_samples]))

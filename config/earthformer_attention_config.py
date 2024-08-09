@@ -10,7 +10,7 @@ class PatternFactory:
     def axial():
         T, H, W, C = PatternFactory._input_shape
         cuboid_sizes = [(int(T), 1, 1), (1, int(H), 1), (1, 1, int(W))]
-        strategy = [('l', 'l', 'l'), ('l', 'l', 'l'), ('l', 'l', 'l')]
+        strategy = [("l", "l", "l"), ("l", "l", "l"), ("l", "l", "l")]
         shift_sizes = [(0, 0, 0), (0, 0, 0), (0, 0, 0)]
         return cuboid_sizes, shift_sizes, strategy
 
@@ -18,7 +18,7 @@ class PatternFactory:
     def full_attention():
         T, H, W, C = PatternFactory._input_shape
         cuboid_sizes = [(T, H, W)]
-        strategy = [('l', 'l', 'l')]
+        strategy = [("l", "l", "l")]
         shift_sizes = [(0, 0, 0)]
         return cuboid_sizes, shift_sizes, strategy
 
@@ -28,7 +28,7 @@ class PatternFactory:
         P = min(PatternFactory._P, T)
         M = min(PatternFactory._M, H, W)
         cuboid_sizes = [(P, M, M), (P, M, M)]
-        strategy = [('l', 'l', 'l'), ('l', 'l', 'l')]
+        strategy = [("l", "l", "l"), ("l", "l", "l")]
         shift_sizes = [(0, 0, 0), (P // 2, M // 2, M // 2)]
         return cuboid_sizes, shift_sizes, strategy
 
@@ -36,7 +36,7 @@ class PatternFactory:
     def divided_space_time():
         T, H, W, C = PatternFactory._input_shape
         cuboid_sizes = [(T, 1, 1), (1, H, W)]
-        strategy = [('l', 'l', 'l'), ('l', 'l', 'l')]
+        strategy = [("l", "l", "l"), ("l", "l", "l")]
         shift_sizes = [(0, 0, 0), (0, 0, 0)]
         return cuboid_sizes, shift_sizes, strategy
 
@@ -46,11 +46,14 @@ class PatternFactory:
 
         if H <= PatternFactory._M and W <= PatternFactory._M:
             cuboid_sizes = [(T, 1, 1), (1, H, W)]
-            strategy = [('l', 'l', 'l'), ('l', 'l', 'l')]
+            strategy = [("l", "l", "l"), ("l", "l", "l")]
             shift_sizes = [(0, 0, 0), (0, 0, 0)]
         else:
-            cuboid_sizes = [(T, 1, 1), (1, PatternFactory._M, PatternFactory._M)
-                , (1, PatternFactory._M, PatternFactory._M)]
-            strategy = [('l', 'l', 'l'), ('l', 'l', 'l'), ('d', 'd', 'd')]
+            cuboid_sizes = [
+                (T, 1, 1),
+                (1, PatternFactory._M, PatternFactory._M),
+                (1, PatternFactory._M, PatternFactory._M),
+            ]
+            strategy = [("l", "l", "l"), ("l", "l", "l"), ("d", "d", "d")]
             shift_sizes = [(0, 0, 0), (0, 0, 0), (0, 0, 0)]
         return cuboid_sizes, shift_sizes, strategy

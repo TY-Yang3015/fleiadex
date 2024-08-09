@@ -7,7 +7,7 @@ class Hyperparams:
     learning_rate: float | str = "optax.cosine_decay_schedule(1e-4, 80000, 1e-7)"
     batch_size: int = 8
     step: int = 100000
-    kld_weight: float = 0.
+    kld_weight: float = 0.0
     disc_weight: float = 1e-3
     discriminator_start_after: int = 50000
 
@@ -26,7 +26,7 @@ class DataSpec:
     auto_normalisation: bool = True
     rescale_min: float | None = None
     rescale_max: float | None = None
-    dataset_dir: str = '/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy'
+    dataset_dir: str = "/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy"
     validation_split: float = 0.1
 
 

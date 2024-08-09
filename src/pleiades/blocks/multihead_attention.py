@@ -16,6 +16,7 @@ class MultiHeadCrossAttention(nn.Module):
     :cvar dropout_rate: dropout rate for the attention dropout, only used if use_dropout=True.
 
     """
+
     output_channels: int
     num_heads: int = 4
     use_memory_efficient_attention: bool = False
@@ -25,21 +26,25 @@ class MultiHeadCrossAttention(nn.Module):
     dropout_rate: float = 0.1
 
     @nn.compact
-    def __call__(self, x: jnp.ndarray, train: bool, context: jnp.ndarray | None = None) -> jnp.ndarray:
-        x = nn.GroupNorm(num_groups=self.group if x.shape[-1] % self.group == 0 else x.shape[-1],
-                         group_size=None)(x)
+    def __call__(
+        self, x: jnp.ndarray, train: bool, context: jnp.ndarray | None = None
+    ) -> jnp.ndarray:
+        x = nn.GroupNorm(
+            num_groups=self.group if x.shape[-1] % self.group == 0 else x.shape[-1],
+            group_size=None,
+        )(x)
         shape = x.shape
-        x = rearrange(x, 'b w h c -> b (w h) c')
+        x = rearrange(x, "b w h c -> b (w h) c")
 
         if context is not None:
-            context = rearrange(context, 'b w h c -> b (w h) c')
+            context = rearrange(context, "b w h c -> b (w h) c")
 
         if self.use_memory_efficient_attention:
             x = MemoryEfficientAttention(
                 query_dim=shape[-1],
                 heads=self.num_heads,
                 dim_head=self.output_channels,
-                dropout=self.dropout_rate if self.use_dropout else 0.
+                dropout=self.dropout_rate if self.use_dropout else 0.0,
             )(x, deterministic=not train, context=context)
         else:
             x = nn.MultiHeadDotProductAttention(
@@ -48,12 +53,13 @@ class MultiHeadCrossAttention(nn.Module):
                 out_features=self.output_channels,
                 dropout_rate=0 if self.use_dropout is False else self.dropout_rate,
                 deterministic=not train,
-                use_bias=self.use_qkv_bias
+                use_bias=self.use_qkv_bias,
             )(x, inputs_k=context, inputs_v=context)
 
         x = x.reshape(shape)
         x = nn.Dense(self.output_channels)(x)
         return x
+
 
 # print(MultiHeadCrossAttention(512).tabulate(jax.random.PRNGKey(0), jnp.ones((5, 16, 16, 512)),
 #                                 False, jnp.ones((5, 16, 16, 512)),
