@@ -447,6 +447,17 @@ class Trainer:
                 batch_stats=discriminator_batch_stats,
             )
 
+        sharding = jax.sharding.NamedSharding(
+                mesh=jax.sharding.Mesh(jax.devices(), axis_names='model'),
+                spec=jax.sharding.PartitionSpec(),
+            )
+
+        create_sharded_array = lambda x: jax.device_put(x, sharding)
+        vae_state = jax.tree_util.tree_map(create_sharded_array, vae_state)
+        discriminator_state = jax.tree_util.tree_map(create_sharded_array, discriminator_state)
+        jax.tree_util.tree_map(lambda x: x.sharding, vae_state)
+        jax.tree_util.tree_map(lambda x: x.discriminator, discriminator_state)
+
         save_vae_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/vae_ckpt'))
         save_disc_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/disc_ckpt'))
         save_options = ocp.CheckpointManagerOptions(max_to_keep=self.config['global_config']['save_num_ckpts'],

@@ -23,7 +23,7 @@ from src.pleiades.nn_models import VAE
 from src.pleiades.utils import (mse, TrainStateWithDropout, DiffusorTrainState)
 from src.pleiades.data_module import DataLoader
 from src.pleiades.diffuser import DDPMCore
-from config.ldm_config import LDMConfig
+from config.time_series_ldm_config import LDMConfig
 
 
 class Trainer:
@@ -141,7 +141,6 @@ class Trainer:
     def _get_next_test_batch_pre_coded(self):
         return next(self.test_ds)
 
-    # @partial(jax.jit, static_argnames=('self',))
     def _train_step(self, state, batch):
 
         def loss_fn(params):
@@ -156,8 +155,6 @@ class Trainer:
             return mse_loss
 
         grads = jax.grad(loss_fn)(state.params)
-        #updates, state = self.optimiser.update(grads, state, state.params)
-        #state.params = optax.apply_updates(state.params, updates)
         state = state.apply_gradients(grads=grads)
 
         return state
@@ -209,7 +206,6 @@ class Trainer:
         self.vae = restored
         del mngr
 
-    # @partial(jax.jit, static_argnums=0)
     def _evaluate(self, params, consts, test_batch):
 
         def compute_metric(pred, true) -> dict[str, jnp.ndarray]:
@@ -217,23 +213,18 @@ class Trainer:
             return {'mse': mse_loss, 'loss': mse_loss}
 
         def evaluate(diffuser):
-            #predictions = diffuser.generate_prediction(test_batch[:, :self.config['data_spec']['condition_length']],
-            #                                           self.eval_rng)
-
-            #predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], predictions],
-            #                              axis=1)
-
-            #predictions = einops.rearrange(predictions, 'b t w h c -> (b t) w h c')
-            #predictions = self.vae.apply_fn({'params': self.vae.params},
-            #                                predictions, method='decode')
-
-            predictions = None
 
             pred, true = diffuser.apply({'params': params, 'constants': consts},
                                         test_batch, self.eval_rng, False,
                                         rngs={'dropout': self.dropout_rng,
                                               'constants': self.const_rng}
                                         )
+
+            predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], pred],
+                                          axis=1)
+
+            predictions = self.vae.apply_fn({'params': self.vae.params},
+                                            predictions, method='decode')
 
             metrics = compute_metric(pred, true)
             return metrics, predictions
@@ -242,20 +233,21 @@ class Trainer:
                                                  rngs={'dropout': self.dropout_rng,
                                                        'constants': self.const_rng})
 
-    # @partial(jax.jit, static_argnums=0)
     def _evaluate_pre_encoded(self, params, consts, test_batch):
         def compute_metric(pred, true) -> dict[str, jnp.ndarray]:
             mse_loss = mse(pred, true).mean()
             return {'mse': mse_loss, 'loss': mse_loss}
 
         def evaluate(diffuser):
-            predictions = None
 
             pred, true = diffuser.apply({'params': params, 'constants': consts},
                                         test_batch, self.eval_rng, False,
                                         rngs={'dropout': self.dropout_rng,
                                               'constants': self.const_rng}
                                         )
+
+            predictions = jnp.concatenate([test_batch[:, :self.config['data_spec']['condition_length']], pred],
+                                          axis=1)
 
             metrics = compute_metric(pred, true)
             return metrics, predictions
@@ -310,6 +302,14 @@ class Trainer:
                 consts=consts
             )
 
+            sharding = jax.sharding.NamedSharding(
+                    mesh=jax.sharding.Mesh(jax.devices(), axis_names='model'),
+                    spec=jax.sharding.PartitionSpec(),
+                )
+            create_sharded_array = lambda x: jax.device_put(x, sharding)
+            state = jax.tree_util.tree_map(create_sharded_array, state)
+            jax.tree_util.tree_map(lambda x: x.sharding, state)
+
             save_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/ckpt'))
             save_options = ocp.CheckpointManagerOptions(max_to_keep=self.config['global_config']['save_num_ckpts'],
                                                         save_interval_steps=self.config['hyperparams']['ckpt_freq'],
@@ -339,7 +339,7 @@ class Trainer:
                     state.params, state.consts, current_test)
 
                 if force_visualisation:
-                    # self._save_output(self.save_dir, prediction, step)
+                    self._save_output(self.save_dir, prediction, step)
 
                     if (step % 1000 == 0) and (step != 0):
                         self._clear_result()
@@ -377,6 +377,15 @@ class Trainer:
                 key=self.dropout_rng,
                 consts=consts
             )
+
+            sharding = jax.sharding.NamedSharding(
+                    mesh=jax.sharding.Mesh(jax.devices(), axis_names='model'),
+                    spec=jax.sharding.PartitionSpec(),
+                )
+
+            create_sharded_array = lambda x: jax.device_put(x, sharding)
+            state = jax.tree_util.tree_map(create_sharded_array, state)
+            jax.tree_util.tree_map(lambda x: x.sharding, state)
 
             save_path = ocp.test_utils.erase_and_create_empty(os.path.abspath(self.save_dir + '/ckpt'))
             save_options = ocp.CheckpointManagerOptions(max_to_keep=5,

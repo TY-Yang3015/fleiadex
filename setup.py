@@ -15,19 +15,19 @@ requirements = [
 ]
 
 setup(
-    name='pleiades',
+    name='pleiadex',
     version=VERSION,
     python_requires='>=3.10',
     liscense='Mozilla Public License Version 2.0',
 
     packages=find_packages(
-        where="prediff_vae",
+        where="src",
         exclude=(
             'legacy',
-            'notebooks',
+            'outputs',
             'literature',)
     ),
-    package_dir={"": "prediff_vae"},
+    package_dir={"": "src"},
     zip_safe=True,
     include_package_data=True,
     install_requires=requirements,

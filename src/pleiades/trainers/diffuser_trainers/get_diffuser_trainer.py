@@ -1,4 +1,4 @@
-from config.ldm_config import LDMConfig
+from config.time_series_ldm_config import LDMConfig
 
 
 def get_diffuser_trainer(config: LDMConfig):

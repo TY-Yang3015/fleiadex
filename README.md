@@ -1,6 +1,6 @@
 # Project Pleiades
 
-This is the developing latent diffusion module.
+This is a latent diffusion module developed for conditional time-series diffusion (_DDPM_).
 
 ## Basic usage
 
