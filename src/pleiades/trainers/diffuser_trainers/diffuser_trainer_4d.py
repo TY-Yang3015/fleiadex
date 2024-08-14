@@ -13,7 +13,7 @@ import optax
 from clu import platform
 from jax.lib import xla_bridge
 import tensorflow as tf
-import hydra.utils as hydra_utils
+from hydra.utils import instantiate
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -23,13 +23,12 @@ from omegaconf import OmegaConf
 
 from src.pleiades.nn_models import VAE
 from src.pleiades.utils import mse, TrainStateWithDropout
-from src.pleiades.data_module import LegacyDataLoader
 from src.pleiades.diffuser import DDPMCore
-from config.time_series_ldm_config import LDMConfig
+from config.conditional_ddpm_config import ConditionalDDPMConfig
 
 
 class Trainer:
-    def __init__(self, config: LDMConfig):
+    def __init__(self, config: ConditionalDDPMConfig):
 
         tf.config.experimental.set_visible_devices([], "GPU")
         logging.info(f"JAX backend: {xla_bridge.get_backend().platform}")
@@ -62,11 +61,11 @@ class Trainer:
         )
 
         logging.info("initializing dataset.")
-        self.data_loader = hydra_utils.instantiate(config.data_spec, _recursive_=False)
-        (
-            self.train_ds,
-            self.test_ds,
-        ) = self.data_loader.write_data_summary().get_train_test_dataset()
+        self.data_loader = instantiate(config.data_spec, _recursive_=False)
+        self.train_ds, self.test_ds = (
+            self.data_loader.train_dataloader(),
+            self.data_loader.val_dataloader(),
+        )
 
         # initialise the save directory
         self.save_dir = self._init_savedir()
@@ -83,10 +82,10 @@ class Trainer:
         self.vae = None
 
         # time frame length
-        self.temporal_length = (
-            self.config["data_spec"]["condition_length"]
-            + self.config["data_spec"]["prediction_length"]
-        )
+        # self.temporal_length = (
+        #     self.config["data_spec"]["condition_length"]
+        #     + self.config["data_spec"]["prediction_length"]
+        # )
 
     def _init_rng(self) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         init_key = random.PRNGKey(42)
@@ -262,7 +261,7 @@ class Trainer:
             return {"mse": mse_loss, "loss": mse_loss}
 
         def evaluate(diffuser):
-
+            # TODO: check if we need to set test_batch[0] = jnp.random.normal
             pred, true = diffuser.apply(
                 {"params": params},
                 test_batch,
@@ -270,26 +269,26 @@ class Trainer:
                 False,
                 rngs={"dropout": self.dropout_rng},
             )
-            predictions = jnp.concatenate(
-                [test_batch[:, : self.config["data_spec"]["condition_length"]], pred],
-                axis=1,
-            )
+            # predictions = jnp.concatenate(
+            #     [test_batch[:, : self.config["data_spec"]["condition_length"]], pred],
+            #     axis=1,
+            # )
 
             metrics = compute_metric(pred, true)
-            return metrics, predictions
+            return metrics, pred
 
         return nn.apply(evaluate, self.diffusor)(
             {"params": params}, rngs={"dropout": self.dropout_rng}
         )
 
-    def _save_output(self, save_dir, prediction, step):
-        if self.config["hyperparams"]["save_prediction"]:
-            self.data_loader.save_image(
-                save_dir + "/predictions",
-                prediction,
-                f"/prediction_{int(step + 1)}.png",
-                nrow=self.temporal_length,
-            )
+    # def _save_output(self, save_dir, prediction, step):
+    #     if self.config["hyperparams"]["save_prediction"]:
+    #         self.data_loader.save_image(
+    #             save_dir + "/predictions",
+    #             prediction,
+    #             f"/prediction_{int(step + 1)}.png",
+    #             nrow=self.temporal_length,
+    #         )
 
     def _clear_result(self):
         directory = self.save_dir + "/predictions"
@@ -315,10 +314,10 @@ class Trainer:
             init_data = jnp.ones(
                 (
                     self.config["hyperparams"]["batch_size"],
-                    self.temporal_length,
-                    self.config["nn_spec"]["sample_input_shape"][1],
-                    self.config["nn_spec"]["sample_input_shape"][2],
-                    self.config["nn_spec"]["sample_input_shape"][3],
+                    # self.temporal_length,
+                    64,
+                    64,
+                    4,
                 ),
                 jnp.float32,
             )
@@ -338,16 +337,16 @@ class Trainer:
                 key=self.dropout_rng,
             )
 
-            if len(jax.devices()) == 0:
-                sharding = jax.sharding.NamedSharding(
-                    mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
-                    spec=jax.sharding.PartitionSpec(),
-                )
-            else:
-                sharding = jax.sharding.NamedSharding(
-                    mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
-                    spec=jax.sharding.PartitionSpec("model"),
-                )
+            # if len(jax.devices()) == 0:
+            sharding = jax.sharding.NamedSharding(
+                mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+                spec=jax.sharding.PartitionSpec(),
+            )
+            # else:
+            #     sharding = jax.sharding.NamedSharding(
+            #         mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+            #         spec=jax.sharding.PartitionSpec("model"),
+            #     )
             create_sharded_array = lambda x: jax.device_put(x, sharding)
             state = jax.tree_util.tree_map(create_sharded_array, state)
             jax.tree_util.tree_map(lambda x: x.sharding, state)
@@ -395,11 +394,11 @@ class Trainer:
                     )
                 )
 
-                if force_visualisation:
-                    self._save_output(self.save_dir, prediction, step)
+                # if force_visualisation:
+                #     self._save_output(self.save_dir, prediction, step)
 
-                    if (step % 1000 == 0) and (step != 0):
-                        self._clear_result()
+                #     if (step % 1000 == 0) and (step != 0):
+                #         self._clear_result()
 
             diffusor_mngr.wait_until_finished()
 
@@ -413,7 +412,7 @@ class Trainer:
             init_data = jnp.ones(
                 (
                     self.config["hyperparams"]["batch_size"],
-                    self.temporal_length,
+                    # self.temporal_length,
                     self.config["nn_spec"]["sample_input_shape"][1],
                     self.config["nn_spec"]["sample_input_shape"][2],
                     self.config["nn_spec"]["sample_input_shape"][3],
@@ -485,7 +484,7 @@ class Trainer:
 
                 metrics, prediction = self._evaluate(state.params, current_test)
 
-                self._save_output(self.save_dir, prediction, step)
+                # self._save_output(self.save_dir, prediction, step)
 
                 if (step % 1000 == 0) and (step != 0):
                     self._clear_result()

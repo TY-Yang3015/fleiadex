@@ -4,8 +4,7 @@ import jax
 from flax.core import FrozenDict
 
 from src.pleiades.diffuser.ddpm_utils import DDPMManager
-from src.pleiades.nn_models.diffuser_backbones.earthformer_unet import EarthformerUNet
-from src.pleiades.nn_models.diffuser_backbones import VanillaUNet2D
+from src.pleiades.nn_models.diffuser_backbones import *
 
 
 class DDPMCore(nn.Module):
@@ -19,10 +18,12 @@ class DDPMCore(nn.Module):
 
         if self.config["global_config"]["use_diffuser_backbone"] == "earthformer":
             self.unet_backbone = EarthformerUNet(**self.config["nn_spec"])
-        elif self.config["global_config"]["use_diffuser_backbone"] == "vanilla2d":
-            self.unet_backbone = VanillaUNet2D(**self.config["nn_spec"])
-        elif self.config["global_config"]["use_diffuser_backbone"] == "vanilla3d":
-            pass
+        elif self.config["global_config"]["use_diffuser_backbone"] == "unet_5d_conv_2d":
+            self.unet_backbone = UNet5DConv2D(**self.config["nn_spec"])
+        elif self.config["global_config"]["use_diffuser_backbone"] == "unet_4d_conv_2d":
+            self.unet_backbone = UNet4DConv2D(**self.config["nn_spec"])
+        elif self.config["global_config"]["use_diffuser_backbone"] == "unet_5d_conv_3d":
+            raise NotImplementedError("this backbone is not implemented yet.")
         else:
             raise NotImplementedError(
                 "only earthformer, vanilla2d and vanilla 3d unets are supported."

@@ -24,7 +24,7 @@ def save_image(
     """Make a grid of images and Save it into an image file.
 
     Args:
-        data_loader (DataLoader): the dataloader object.
+        data_loader (LegacyDataLoader): the dataloader object.
         save_dir (str): the directory to save the image file.
         ndarray (array_like): 4D mini-batch images of shape (B x H x W x C)
         fp:  A filename(string) or file object
@@ -50,10 +50,10 @@ def save_image(
 
     if data_loader.rescale_min is None or data_loader.rescale_max is None:
         ndarray -= data_loader.data_min
-        ndarray /= data_loader.data_max
+        ndarray *= data_loader.data_max - data_loader.data_min
     else:
         ndarray -= data_loader.rescale_min
-        ndarray /= data_loader.rescale_max
+        ndarray *= data_loader.rescale_max - data_loader.rescale_min
 
     if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
         ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)
@@ -93,7 +93,7 @@ def save_image(
     im.save(save_dir + fp, format=format_img)
 
 
-class DataLoader:
+class LegacyDataLoader:
     """
     the dataloader for ``.npy`` format dataset.
 
@@ -116,6 +116,7 @@ class DataLoader:
         self,
         data_dir: str,
         batch_size: int,
+        image_channels: int = 4,
         rescale_max: float | None = None,
         rescale_min: float | None = None,
         validation_size: float = 0.2,
@@ -123,13 +124,16 @@ class DataLoader:
         sequence_length: int = 1,
         auto_normalisation: bool = True,
         target_layout: str = "h w c",
-        output_image_size: int = 128,
+        image_size: int = 128,
+        *args,
+        **kwargs,
     ):
 
         self.data_dir = data_dir
         self.data = np.load(data_dir)
         self.origin_shape = self.data.shape
         self.batch_size = batch_size
+        self.channels = image_channels
         self.rescale_max = rescale_max
         self.rescale_min = rescale_min
         self.validation_size = validation_size
@@ -141,7 +145,7 @@ class DataLoader:
 
         self.auto_normalisation = auto_normalisation
         self.target_layout = target_layout
-        self.output_image_size = output_image_size
+        self.output_image_size = image_size
 
         self._make_layout()
 

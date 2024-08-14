@@ -15,6 +15,12 @@ def get_diffuser_trainer(config: LDMConfig):
             )
 
             return Trainer(config)
+    elif config.global_config.use_diffuser_backbone.split("_")[1] == "4d":
+        from src.pleiades.trainers.diffuser_trainers.diffuser_trainer_4d import (
+            Trainer,
+        )
+
+        return Trainer(config)
     else:
         from src.pleiades.trainers.diffuser_trainers.diffuser_trainer_no_constant import (
             Trainer,

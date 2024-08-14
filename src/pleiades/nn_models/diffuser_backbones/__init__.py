@@ -1,2 +1,3 @@
-from src.pleiades.nn_models.diffuser_backbones.vanilla_unet2d import VanillaUNet2D
+from src.pleiades.nn_models.diffuser_backbones.unet_5d_conv_2d import UNet5DConv2D
 from src.pleiades.nn_models.diffuser_backbones.earthformer_unet import EarthformerUNet
+from src.pleiades.nn_models.diffuser_backbones.unet_4d_conv_2d import UNet4DConv2D

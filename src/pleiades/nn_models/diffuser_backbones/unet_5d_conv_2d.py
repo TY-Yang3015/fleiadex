@@ -16,7 +16,7 @@ from src.pleiades.blocks import (
 )
 
 
-class VanillaUNet2D(nn.Module):
+class UNet5DConv2D(nn.Module):
     sample_input_shape: tuple[int, int, int, int]
     cond_input_shape: tuple[int, int, int, int]
     base_channels: int

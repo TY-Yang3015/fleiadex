@@ -21,13 +21,18 @@ class Hyperparams:
 
 @dataclass
 class DataSpec:
+    _target_: str = "src.pleiades.data_module.LegacyDataLoader"
     image_size: int = 128
-    image_channels: int = 4
     auto_normalisation: bool = True
     rescale_min: float | None = None
     rescale_max: float | None = None
-    dataset_dir: str = "/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy"
-    validation_split: float = 0.1
+    data_dir: str = "/home/arezy/Desktop/ProjectPleiades/src/pleiades/exp_data/satel_array_202312bandopt00_clear.npy"
+    validation_size: float = 0.1
+    batch_size: int = Hyperparams.batch_size
+    sequenced: bool = False
+    sequence_length: int = 1
+    target_layout: str = "h w c"
+    image_channels: int = 4
 
 
 @dataclass
@@ -43,9 +48,9 @@ class VAENNSpec:
     encoder_post_attention_resnet_depth: int = 4
     encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
-    encoder_down_sample_activation: str = "softplus"
-    encoder_post_attention_activation: str = "softplus"
-    encoder_final_activation: str = "softplus"
+    encoder_down_sample_activation: str = "silu"
+    encoder_post_attention_activation: str = "silu"
+    encoder_final_activation: str = "silu"
 
     decoder_latent_channels: int = 4
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
@@ -61,9 +66,9 @@ class VAENNSpec:
     decoder_use_final_linear_projection: bool = False
     decoder_reconstruction_channels: int = 4
     decoder_conv_kernel_sizes: tuple[int] = (3, 3)
-    decoder_up_sample_activation: str = "softplus"
-    decoder_pre_output_activation: str = "softplus"
-    decoder_final_activation: str = "softplus"
+    decoder_up_sample_activation: str = "silu"
+    decoder_pre_output_activation: str = "silu"
+    decoder_final_activation: str = "silu"
 
 
 @dataclass

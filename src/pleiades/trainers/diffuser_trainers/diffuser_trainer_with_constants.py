@@ -12,6 +12,7 @@ import optax
 from clu import platform
 from jax.lib import xla_bridge
 import tensorflow as tf
+import hydra.utils as hydra_utils
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -21,7 +22,7 @@ from omegaconf import OmegaConf
 
 from src.pleiades.nn_models import VAE
 from src.pleiades.utils import mse, TrainStateWithDropout, DiffusorTrainState
-from src.pleiades.data_module import DataLoader
+from src.pleiades.data_module import LegacyDataLoader
 from src.pleiades.diffuser import DDPMCore
 from config.time_series_ldm_config import LDMConfig
 
@@ -60,19 +61,7 @@ class Trainer:
         )
 
         logging.info("initializing dataset.")
-        self.data_loader = DataLoader(
-            data_dir=self.config["data_spec"]["dataset_dir"],
-            batch_size=self.config["hyperparams"]["batch_size"],
-            validation_size=self.config["data_spec"]["validation_split"],
-            rescale_max=self.config["data_spec"]["rescale_max"],
-            rescale_min=self.config["data_spec"]["rescale_min"],
-            sequenced=True,
-            sequence_length=self.config["data_spec"]["condition_length"]
-            + self.config["data_spec"]["prediction_length"],
-            auto_normalisation=self.config["data_spec"]["auto_normalisation"],
-            target_layout="h w c",
-            output_image_size=self.config["data_spec"]["image_size"],
-        )
+        self.data_loader = hydra_utils.instantiate(config.data_spec, _recursive_=False)
         (
             self.train_ds,
             self.test_ds,

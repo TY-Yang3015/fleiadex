@@ -11,6 +11,7 @@ import jax.numpy as jnp
 import optax
 from clu import platform
 import tensorflow as tf
+import hydra.utils as hydra_utils
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -28,7 +29,7 @@ from src.pleiades.utils import (
     TrainStateWithBatchStats,
 )
 from src.pleiades.nn_models import Discriminator
-from src.pleiades.data_module import DataLoader
+from src.pleiades.data_module import LegacyDataLoader
 
 from config.vae_config import VAEConfig
 
@@ -75,17 +76,8 @@ class Trainer:
 
         # initialise dataset with custom pipelines
         logging.info("initializing dataset.")
-        self.data_loader = DataLoader(
-            data_dir=self.config["data_spec"]["dataset_dir"],
-            batch_size=self.config["hyperparams"]["batch_size"],
-            validation_size=self.config["data_spec"]["validation_split"],
-            rescale_max=self.config["data_spec"]["rescale_max"],
-            rescale_min=self.config["data_spec"]["rescale_min"],
-            sequenced=False,
-            auto_normalisation=self.config["data_spec"]["auto_normalisation"],
-            target_layout="h w c",
-            output_image_size=128,
-        )
+        self.data_loader = hydra_utils.instantiate(config.data_spec, _recursive_=False)
+
         (
             self.train_ds,
             self.test_ds,

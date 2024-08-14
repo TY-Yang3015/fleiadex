@@ -115,7 +115,7 @@ class CuboidAttentionBlock(nn.Module):
             x = self.ffn_list[0](x, train=train)
             return x
 
-
+#
 #rng = {'params': jax.random.PRNGKey(0), 'dropout': jax.random.PRNGKey(1)}
 #print(CuboidAttentionBlock((5, 16, 16, 256), 4).tabulate(rng, jnp.ones((10, 5, 16, 16, 256)), False,
 #                                                                depth=1, console_kwargs={'width': 150}))

@@ -60,5 +60,5 @@ class SelfAttention(nn.Module):
         return x
 
 
-# print(SelfAttention(512).tabulate(jax.random.PRNGKey(0), jnp.ones((5, 16, 16, 512)), False,
-#                                  depth=1, console_kwargs={'width':150}))
+# print(SelfAttention(512).tabulate(jax.random.PRNGKey(0), jnp.ones((5, 16, 16, 512)), False,\
+#                                      depth=1, console_kwargs={'width':150}))

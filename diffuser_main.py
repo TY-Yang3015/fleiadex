@@ -4,10 +4,11 @@ from hydra.core.config_store import ConfigStore
 import os
 
 from config.time_series_ldm_config import LDMConfig
+from config.conditional_ddpm_config import ConditionalDDPMConfig
 
 
 cs = ConfigStore.instance()
-cs.store(name="ldm_config", node=LDMConfig)
+cs.store(name="ldm_config", node=ConditionalDDPMConfig)
 
 
 @hydra.main(version_base=None, config_name="ldm_config")

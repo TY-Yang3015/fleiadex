@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class Vanilla2DSpec:
+class Unet5DConv2DSpec:
     sample_input_shape: tuple[int, int, int, int] = (2, 16, 16, 4)
     cond_input_shape: tuple[int, int, int, int] = (3, 16, 16, 4)
     base_channels: int = 4
