@@ -1,0 +1,1 @@
+from fleiadex.interface.vae_interface import VariationalAutoencoder

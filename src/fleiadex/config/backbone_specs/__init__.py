@@ -1,0 +1,3 @@
+from fleiadex.config.backbone_specs.earthformer_spec import EarthformerSpec
+from fleiadex.config.backbone_specs.unet_4d_conv_2d_spec import UNet4DConv2DSpec
+from fleiadex.config.backbone_specs.unet_5d_conv_2d_spec import Unet5DConv2DSpec

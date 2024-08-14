@@ -1,7 +1,7 @@
 literature/
 legacy/
 data
-src/pleiades/exp_data
+src/fleiadex/exp_data
 __pycache__
 *.
 outputs*

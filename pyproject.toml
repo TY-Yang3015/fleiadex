@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fleiadex"
+version = "0.1.0"
+description = "Your project description here"
+requires-python = ">=3.11"
+license = {text = "Mozilla Public License Version 2.0"}
+dependencies = [
+    "tensorflow",
+    "jax[cuda12]",
+    "jaxlib",
+    "pillow",
+    "hydra-core",
+    "optax",
+    "flax",
+    "einops",
+    "clu",
+    "tensorflow_datasets",
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "tqdm",
+    "matplotlib"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+zip-safe = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["legacy", "outputs", "literature"]

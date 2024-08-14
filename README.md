@@ -17,7 +17,7 @@ The functions for independent usage of the VAE and diffuser will be updated soon
 You are advised to use `conda` as the environment manager. The key modules are
 
 ```shell
-pip install --upgrade "jax[cuda12]" optax clu hydra-core tensorflow pillow einops flax
+pip install --upgrade "jax[cuda12]" optax clu hydra-express tensorflow pillow einops flax
 ```
 
 In principle, modules like `jaxlib` should come with `jax`/`optax`. This setup has been tested on linux (`ubuntu lts`), please

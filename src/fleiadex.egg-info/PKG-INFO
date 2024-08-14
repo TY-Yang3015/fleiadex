@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: fleiadex
+Version: 0.1.0
+Summary: Your project description here
+License: Mozilla Public License Version 2.0
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: tensorflow
+Requires-Dist: jax[cuda12]
+Requires-Dist: jaxlib
+Requires-Dist: pillow
+Requires-Dist: hydra-core
+Requires-Dist: optax
+Requires-Dist: flax
+Requires-Dist: einops
+Requires-Dist: clu
+Requires-Dist: tensorflow_datasets
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: tqdm
+Requires-Dist: matplotlib

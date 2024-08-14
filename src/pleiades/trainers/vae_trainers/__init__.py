@@ -1,1 +1,0 @@
-from src.pleiades.trainers.vae_trainers.get_vae_trainer import get_vae_trainer

@@ -1,1 +1,1 @@
-from src.pleiades import VariationalAutoencoder
+from src.fleiadex import VariationalAutoencoder
