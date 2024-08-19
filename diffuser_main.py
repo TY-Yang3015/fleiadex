@@ -14,12 +14,10 @@ cs.store(name="diffusion_config", node=ConditionalDDPMConfig)
 @hydra.main(version_base=None, config_name="diffusion_config")
 def execute(config: LDMConfig) -> None:
     os.environ["CUDA_VISIBLE_DEVICES"] = config.global_config.use_which_gpus
-    os.environ["HYDRA_FULL_ERROR"] = '1'
+    os.environ["HYDRA_FULL_ERROR"] = config.global_config.hydra_full_error
     from src.fleiadex.trainers import get_diffuser_trainer
 
     trainer = get_diffuser_trainer(config)
-    #trainer.load_vae_from("/home/arezy/Desktop/fleiadex/outputs/"
-    #                      "2024-08-17/18-13-15/results/vae_ckpt")
     trainer.train(force_visualisation=True)
 
 

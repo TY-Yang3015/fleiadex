@@ -108,6 +108,12 @@ class Trainer:
         self.restored_vae_state = None
         self.restored_discriminator_state = None
 
+        if self.config['hyperparams']['load_ckpt_dir'] is not None:
+            self.load_vae_from(self.config['hyperparams']['load_ckpt_dir'],
+                               self.config['hyperparams']['load_config'],
+                               self.config['hyperparams']['ckpt_step'])
+            self.__manual_load__ = True
+
     def _init_rng(self) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         init_key = random.PRNGKey(42)
         latent_rng, eval_rng, dropout_rng, train_key = random.split(init_key, 4)
@@ -395,7 +401,11 @@ class Trainer:
         shutil.rmtree(directory)
         os.makedirs(directory)
 
-    def load_vae_from(self, ckpt_dir, load_config=True, step=None):
+    def load_vae_from(self, ckpt_dir, load_config=True, step=None) -> None:
+        if self.__manual_load__ is True:
+            logging.warning('ckpt cannot be loaded twice. this call will be ignored.')
+            return None
+
         logging.info("loading vae from %s", ckpt_dir)
 
         if isinstance(ckpt_dir, str):

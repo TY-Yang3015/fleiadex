@@ -179,7 +179,7 @@ class FleiadexDataLoader:
                                                                                    "match the normalisation parameter"
                                                                                    "dimensions.")
 
-        if self.target_layout.split(" ")[-1] == "c".casefold():
+        if self.target_layout.split(" ")[-1].casefold() == "c":
             if self.pre_split:
                 self.mean, self.std = self._get_distribution_spec(self.train_data.concatenate(self.validation_data),
                                                                   (0, 1))
@@ -235,12 +235,12 @@ class FleiadexDataLoader:
 
         data = tf.ensure_shape(data, [None, None, None])
         if shape[0] == shape[1]:
-            if self.target_layout.split(" ")[-1] == "c".casefold():
+            if self.target_layout.split(" ")[-1].casefold() == "c":
                 pass
             else:
                 data = rearrange(data, "w h c -> c w h")
         elif shape[1] == shape[2]:
-            if self.target_layout.split(" ")[0] == "c".casefold():
+            if self.target_layout.split(" ")[0].casefold() == "c":
                 pass
             else:
                 data = rearrange(data, "c w h -> w h c")
@@ -288,7 +288,7 @@ class FleiadexDataLoader:
         elif self.fixed_normalisation_spec is not None:
             data = (data - self.fixed_normalisation_spec[0]) / self.fixed_normalisation_spec[1]
 
-        if self.target_layout.split(" ")[-1] == "c".casefold():
+        if self.target_layout.split(" ")[-1].casefold() == "c":
             data = tf.image.resize(
                 data,
                 (
@@ -422,9 +422,9 @@ class FleiadexDataLoader:
 
     def reverse_preprocess(self, image: jnp.ndarray) -> jnp.ndarray:
 
-        if self.target_layout.split(" ")[-1] == "c".casefold():
+        if self.target_layout.split(" ")[-1].casefold() == "c":
             image = image * self.std + self.mean
-        elif self.target_layout.split(" ")[0] == "c".casefold():
+        elif self.target_layout.split(" ")[0].casefold() == "c":
             if self.sequenced:
                 image = rearrange(image, "b t c h w -> b t h w c")
             else:

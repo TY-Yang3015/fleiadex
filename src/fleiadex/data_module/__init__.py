@@ -1,2 +1,1 @@
-from fleiadex.data_module.npy_loader_legacy import FleiadexDataLoader
-from fleiadex.data_module.data_loader import DataLoader
+from fleiadex.data_module.npy_loader import FleiadexDataLoader

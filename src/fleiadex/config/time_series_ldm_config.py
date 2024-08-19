@@ -16,6 +16,10 @@ class Hyperparams:
     ckpt_freq: int = 2000
     save_prediction: bool = True
 
+    load_ckpt_dir: str | None = '/home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt'
+    load_config: bool = True
+    ckpt_step: int | None = None
+
 
 @dataclass
 class DataSpec:

@@ -31,6 +31,8 @@ class Hyperparams:
     gradient_clipping: float = 1.0
     ema_decay: float = 0.999
 
+    load_vae_dir: str | None = '/home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt'
+
 
 @dataclass
 class ConditionalDDPMConfig:

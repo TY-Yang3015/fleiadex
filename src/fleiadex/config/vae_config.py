@@ -1,7 +1,5 @@
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from fleiadex.config.global_config import GlobalConfig
-
-from omegaconf import OmegaConf
 
 
 @dataclass
@@ -21,6 +19,10 @@ class Hyperparams:
     save_comparison: bool = True
     sample_size: int = 10
     save_sample: bool = True
+
+    load_ckpt_dir: str | None = '/home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt'
+    load_config: bool = True
+    ckpt_step: int | None = None
 
 
 @dataclass
@@ -49,13 +51,13 @@ class VAENNSpec:
     encoder_attention_dropout_rate: float = 0.1
     encoder_use_memory_efficient_attention = True
     encoder_post_attention_resnet_depth: int = 1
-    encoder_latents_channels: int = 1
+    encoder_latents_channels: int = 4
     encoder_conv_kernel_sizes: tuple[int] = (3, 3)
     encoder_down_sample_activation: str = "silu"
     encoder_post_attention_activation: str = "silu"
     encoder_final_activation: str = "silu"
 
-    decoder_latent_channels: int = 1
+    decoder_latent_channels: int = 4
     decoder_spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     decoder_channel_schedule: tuple[int] = (512, 256, 128)
     decoder_resnet_depth_schedule: tuple[int] = (2, 2, 2)

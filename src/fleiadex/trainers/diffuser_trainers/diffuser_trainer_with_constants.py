@@ -53,7 +53,7 @@ class Trainer:
         # train_key is only used to split keys
         self.train_key, self.train_rng = random.split(self.train_key)
 
-        # the diffusion express
+        # the diffusion core
         self.diffusor = DDPMCore(
             config=self.config,
             diffusion_time_steps=self.config["hyperparams"]["diffusion_time_steps"],
@@ -85,6 +85,14 @@ class Trainer:
             self.config["data_spec"]["condition_length"]
             + self.config["data_spec"]["prediction_length"]
         )
+
+        # load vae if not encoded
+        if self.config['data_spec']['pre_encoded'] is False:
+            if self.config['hyperparams']['load_vae_dir'] is not None:
+                self.load_vae_from(self.config['hyperparams']['load_vae_dir'])
+                self.__manual_load__ = True
+            else:
+                raise ValueError('for unencoded dataset, vae must be specified.')
 
     def _init_rng(self) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         init_key = random.PRNGKey(42)

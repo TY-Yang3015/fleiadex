@@ -1,1 +1,1 @@
-python -c "from fleiadex.express import execute_vae; execute_vae()" global_config.use_which_gpus=\'0\'
+python -c "from fleiadex.training import execute_vae; execute_vae('/home/arezy/Desktop/fleiadex/vae_config.yaml')" hyperparams.load_ckpt_dir=null
