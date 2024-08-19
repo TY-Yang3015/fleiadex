@@ -1,0 +1,92 @@
+hyperparams:
+  learning_rate: optax.warmup_cosine_decay_schedule(1e-5, 1e-5, 3000, 80000, 1e-7)
+  batch_size: 10
+  step: 149999
+  kld_weight: 0.0
+  disc_weight: 0.01
+  discriminator_start_after: 10000
+  gradient_clipping: 1.0
+  save_ckpt: true
+  save_discriminator: true
+  ckpt_freq: 1000
+  eval_freq: 1
+  save_comparison: true
+  sample_size: 10
+  save_sample: true
+  load_ckpt_dir: null
+  load_config: true
+  ckpt_step: null
+data_spec:
+  _target_: fleiadex.data_module.FleiadexDataLoader
+  image_size: 128
+  auto_normalisation: true
+  rescale_min: null
+  rescale_max: null
+  data_dir: ./src/fleiadex/exp_data/satel_array_202312bandopt00_clear.npy
+  validation_size: 0.1
+  batch_size: 10
+  target_layout: h w c
+  image_channels: 4
+nn_spec:
+  encoder_spatial_downsample_schedule:
+  - 2
+  - 2
+  - 2
+  encoder_channel_schedule:
+  - 128
+  - 256
+  - 512
+  encoder_resnet_depth_schedule:
+  - 2
+  - 2
+  - 2
+  - 2
+  encoder_use_attention: true
+  encoder_attention_heads: 4
+  encoder_attention_use_qkv_bias: false
+  encoder_attention_use_dropout: true
+  encoder_attention_dropout_rate: 0.1
+  encoder_post_attention_resnet_depth: 1
+  encoder_latents_channels: 4
+  encoder_conv_kernel_sizes:
+  - 3
+  - 3
+  encoder_down_sample_activation: silu
+  encoder_post_attention_activation: silu
+  encoder_final_activation: silu
+  decoder_latent_channels: 4
+  decoder_spatial_upsample_schedule:
+  - 2
+  - 2
+  - 2
+  decoder_channel_schedule:
+  - 512
+  - 256
+  - 128
+  decoder_resnet_depth_schedule:
+  - 2
+  - 2
+  - 2
+  decoder_use_attention: true
+  decoder_attention_heads: 4
+  decoder_attention_use_qkv_bias: false
+  decoder_attention_use_dropout: true
+  decoder_attention_dropout_rate: 0.1
+  decoder_up_sampler_type: resize
+  decoder_use_memory_efficient_attention: true
+  decoder_pre_output_resnet_depth: 1
+  decoder_use_final_linear_projection: false
+  decoder_reconstruction_channels: 4
+  decoder_conv_kernel_sizes:
+  - 3
+  - 3
+  decoder_up_sample_activation: silu
+  decoder_pre_output_activation: silu
+  decoder_final_activation: silu
+global_config:
+  use_which_gpus: '0'
+  hydra_full_error: '1'
+  use_diffuser_backbone: unet_4d_conv_2d
+  use_predictor_backbone: unet
+  save_num_ckpts: 3
+  compute_auxiliary_metric: true
