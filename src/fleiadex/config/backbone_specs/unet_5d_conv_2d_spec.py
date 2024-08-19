@@ -3,8 +3,8 @@ from dataclasses import dataclass
 
 @dataclass
 class Unet5DConv2DSpec:
-    sample_input_shape: tuple[int, int, int, int] = (2, 16, 16, 4)
-    cond_input_shape: tuple[int, int, int, int] = (3, 16, 16, 4)
+    sample_input_shape: tuple[int, int, int, int] = (1, 32, 32, 1)
+    cond_input_shape: tuple[int, int, int, int] = (3, 32, 32, 1)
     base_channels: int = 4
     spatial_down_sample_schedule: tuple[int] = (2, 2)
     merge_temporal_dim_and_image_channels: bool = False

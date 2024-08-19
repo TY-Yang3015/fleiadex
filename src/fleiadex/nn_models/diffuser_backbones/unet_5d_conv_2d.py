@@ -75,8 +75,8 @@ class UNet5DConv2D(nn.Module):
         down_samplers = []
         if self.merge_temporal_dim_and_image_channels:
             current_channels = (
-                self.sample_input_shape[0] + self.cond_input_shape[0]
-            ) * self.base_channels
+                                       self.sample_input_shape[0] + self.cond_input_shape[0]
+                               ) * self.base_channels
         else:
             current_channels = self.base_channels
         for _, down_sample_factor in enumerate(self.spatial_down_sample_schedule):
@@ -101,7 +101,7 @@ class UNet5DConv2D(nn.Module):
                 down_sample_attention_block.append(Identity())
 
             if self.down_sampler_type == "conv":
-                current_channels *= down_sample_factor**2
+                current_channels *= down_sample_factor ** 2
                 down_samplers.append(
                     nn.Conv(
                         features=current_channels,
@@ -114,11 +114,11 @@ class UNet5DConv2D(nn.Module):
                 down_samplers.append(
                     PatchMerge3D(
                         input_channels=current_channels,
-                        output_channels=current_channels * down_sample_factor**2,
+                        output_channels=current_channels * down_sample_factor ** 2,
                         down_sample_factors=(1, down_sample_factor, down_sample_factor),
                     )
                 )
-                current_channels *= down_sample_factor**2
+                current_channels *= down_sample_factor ** 2
             else:
                 raise NotImplementedError(
                     'only "conv" and "patch_merge" are supported for down-sampling.'
@@ -167,7 +167,7 @@ class UNet5DConv2D(nn.Module):
         up_sample_attention_block = []
         up_samplers = []
         for _, down_sample_factor in enumerate(
-            reversed(self.spatial_down_sample_schedule)
+                reversed(self.spatial_down_sample_schedule)
         ):
             res_block = []
             for _ in range(self.up_sample_resnet_depth):
@@ -190,7 +190,7 @@ class UNet5DConv2D(nn.Module):
                 up_sample_attention_block.append(Identity())
 
             if self.up_sampler_type == "conv_transpose":
-                current_channels /= down_sample_factor**2
+                current_channels /= down_sample_factor ** 2
                 current_channels = int(current_channels)
                 up_samplers.append(
                     nn.ConvTranspose(
@@ -205,7 +205,7 @@ class UNet5DConv2D(nn.Module):
                     up_samplers.append(
                         UpSampler2D(
                             output_channels=int(
-                                current_channels / down_sample_factor**2
+                                current_channels / down_sample_factor ** 2
                             ),
                             target_size=(
                                 latent_size * down_sample_factor,
@@ -217,7 +217,7 @@ class UNet5DConv2D(nn.Module):
                     up_samplers.append(
                         UpSampler3D(
                             output_channels=int(
-                                current_channels / down_sample_factor**2
+                                current_channels / down_sample_factor ** 2
                             ),
                             target_size=(
                                 self.sample_input_shape[0] + self.cond_input_shape[0],
@@ -228,7 +228,7 @@ class UNet5DConv2D(nn.Module):
                     )
                 latent_size *= down_sample_factor
                 latent_size = int(latent_size)
-                current_channels /= down_sample_factor**2
+                current_channels /= down_sample_factor ** 2
                 current_channels = int(current_channels)
             else:
                 raise NotImplementedError(
@@ -248,7 +248,7 @@ class UNet5DConv2D(nn.Module):
         self.final_projection = nn.Dense(self.cond_input_shape[-1])
 
     def __call__(
-        self, x: jnp.ndarray, cond: jnp.ndarray, t: jnp.ndarray, train: bool
+            self, x: jnp.ndarray, cond: jnp.ndarray, t: jnp.ndarray, train: bool
     ) -> jnp.ndarray:
         x = jnp.concat([cond, x], axis=1)
         x = self.input_conv_proj(x)
@@ -318,10 +318,10 @@ class UNet5DConv2D(nn.Module):
             )
             x = rearrange(x, "b w h t c -> b t w h c")
 
-        x = self.final_projection(x[:, self.cond_input_shape[0] :, ...])
+        x = self.final_projection(x[:, self.cond_input_shape[0]:, ...])
         return x
 
 
-# print(VanillaUNet2D((3, 16, 16, 4), (2, 16, 16, 4), 4, (2, 2))
-#     .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 3, 16, 16, 4)), jnp.zeros((10, 2, 16, 16, 4)), jnp.zeros(10),
+# print(UNet5DConv2D((3, 64, 64, 1), (2, 64, 64, 1), 4, (2, 2))
+#      .tabulate(jax.random.PRNGKey(1), jnp.zeros((10, 3, 64, 64, 4)), jnp.zeros((10, 2, 64, 64, 4)), jnp.zeros(10),
 #                False, depth=1, console_kwargs={'width': 150}))

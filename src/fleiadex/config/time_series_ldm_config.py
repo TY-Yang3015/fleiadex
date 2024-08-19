@@ -6,9 +6,11 @@ from fleiadex.config.backbone_specs import Unet5DConv2DSpec
 @dataclass
 class Hyperparams:
     learning_rate: float | str = "optax.cosine_decay_schedule(1e-5, 80000, 1e-7)"
-    batch_size: int = 2
+    batch_size: int = 5
     diffusion_time_steps: int = 1000
     step: int = 100000
+    gradient_clipping: float = 1.0
+    ema_decay: float = 0.999
 
     save_ckpt: bool = True
     ckpt_freq: int = 2000
@@ -17,21 +19,20 @@ class Hyperparams:
 
 @dataclass
 class DataSpec:
-    _target_: str = "fleiadex.data_module.LegacyDataLoader"
+    _target_: str = "fleiadex.data_module.FleiadexDataLoader"
     pre_encoded: bool = True
-    image_size: int = 128
-    auto_normalisation: bool = True
-    rescale_min: float | None = None
-    rescale_max: float | None = None
-    data_dir: str = "/fleiadex/exp_data/satel_array_202312bandopt00_clear.npy"
+    data_dir: str = "/home/arezy/Desktop/fleiadex/src/fleiadex/exp_data/satel_1.npy"
     validation_size: float = 0.1
     batch_size: int = Hyperparams.batch_size
-    sequenced: bool = False
-    sequence_length: int = 1
-    target_layout: str = "h w c"
+    fixed_normalisation_spec: tuple[list[float, ...], ...] | None = None
+    auto_normalisation: bool = True
+    output_image_size: int = 32
     image_channels: int = 4
     condition_length: int = 3
-    prediction_length: int = 2
+    prediction_length: int = 1
+    pre_split: bool = False
+    sequenced: bool = True
+    sequence_length: int = condition_length + prediction_length
 
 
 @dataclass

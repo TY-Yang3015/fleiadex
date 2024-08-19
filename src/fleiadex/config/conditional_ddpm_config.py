@@ -5,27 +5,31 @@ from fleiadex.config.backbone_specs import UNet4DConv2DSpec
 
 @dataclass
 class DataSpec:
-    _target_: str = "fleiadex.data_module.DataLoader"
+    _target_: str = "fleiadex.data_module.FleiadexDataLoader"
     pre_encoded: bool = True
-    dataset_dir: str = "/fleiadex/exp_data"
-    batch_size: int = 8
-    mean: tuple[float] = (264.5569, 249.6994, 228.8998, 242.5480)
-    std: tuple[float] = (25.1830, 18.3450, 7.5322, 13.1226)
-    input_image_size: tuple[int] = (64, 64)
-    output_image_size: tuple[int] = (64, 64)
+    data_dir: str = "./src/fleiadex/exp_data/satel_array_202312bandopt00_clear.npy"
+    validation_size: float = 0.1
+    batch_size: int = 10
+    fixed_normalisation_spec: tuple[list[float, ...], ...] | None = None
+    auto_normalisation: bool = True
+    output_image_size: int = 64
     image_channels: int = 4
+    pre_split: bool = False
+    condition_length: int = 3
+    sample_length: int = image_channels - condition_length
 
 
 @dataclass
 class Hyperparams:
-    learning_rate: float | str = "optax.cosine_decay_schedule(1e-5, 80000, 1e-7)"
-    batch_size: int = 2
+    learning_rate: float | str = "optax.warmup_cosine_decay_schedule(1e-5, 1e-5, 3000, 80000, 1e-7)"
+    batch_size: int = DataSpec.batch_size
     diffusion_time_steps: int = 1000
-    step: int = 100000
+    step: int = 99999
     save_ckpt: bool = True
     ckpt_freq: int = 2000
     save_prediction: bool = True
-    pred_channel: int = 0
+    gradient_clipping: float = 1.0
+    ema_decay: float = 0.999
 
 
 @dataclass

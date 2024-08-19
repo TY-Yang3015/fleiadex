@@ -42,8 +42,6 @@ class DDPMManager(nn.Module):
             / (1.0 - self.alpha_cumprod)
         )
 
-        self.key = jax.random.PRNGKey(0)
-
     def q_mean_var(self, x_start, t):
         mean = self.sqrt_alphas_cumprod[t] * x_start
         var = 1.0 - self.alpha_cumprod[t]
@@ -81,25 +79,11 @@ class DDPMManager(nn.Module):
         model_mean, posterior_var, posterior_log_var = self.q_posterior(x_recon, x, t)
         return model_mean, posterior_var, posterior_log_var
 
-    def p_sample(self, pred_noise, x, t, clip_denoised=False):
+    def p_sample(self, pred_noise, x, t, eval_key, clip_denoised=False):
         model_mean, _, model_log_var = self.p_mean_var(pred_noise, x, t, clip_denoised)
 
-        noise = jax.random.normal(self.key, x.shape)
+        noise = jax.random.normal(eval_key, x.shape)
 
         nonzero_mask = 1 - jnp.equal(t, 0)
 
         return model_mean + nonzero_mask * jnp.exp(0.5 * model_log_var) * noise
-
-
-# a = DDPMManager(
-#     timestep=1000,
-#     beta_start=1e-4,
-#     beta_end=0.02,
-#     clip_min=0,
-#     clip_max=1.
-# )
-
-# f = jnp.ones((10, 5, 10, 10, 3))
-# t = jnp.ones((10, 1, 1, 1, 1), dtype=jnp.int32)
-# b = a.q_sample(f, t, f)
-# print(b.shape)

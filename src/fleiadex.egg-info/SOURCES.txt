@@ -39,7 +39,6 @@ src/fleiadex/config/backbone_specs/unet_4d_conv_2d_spec.py
 src/fleiadex/config/backbone_specs/unet_5d_conv_2d_spec.py
 src/fleiadex/data_module/__init__.py
 src/fleiadex/data_module/data_loader.py
-src/fleiadex/data_module/npy_core_legacy.py
 src/fleiadex/data_module/npy_loader_legacy.py
 src/fleiadex/data_module/legacy/__init__.py
 src/fleiadex/data_module/legacy/load_dataset.py
@@ -63,6 +62,7 @@ src/fleiadex/exp_data/utils/data_processing.py
 src/fleiadex/express/__init__.py
 src/fleiadex/express/vae_mains.py
 src/fleiadex/interface/__init__.py
+src/fleiadex/interface/conditional_diffuser_4d_interface.py
 src/fleiadex/interface/vae_interface.py
 src/fleiadex/nn_models/__init__.py
 src/fleiadex/nn_models/diffuser_backbones/__init__.py

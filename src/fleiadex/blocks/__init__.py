@@ -5,6 +5,7 @@ from fleiadex.blocks.time_embedding import (
     TimeEmbedding,
     TimeEmbeddingInit,
     TimeEmbeddingResBlock,
+    TimeEmbedding2D
 )
 from fleiadex.blocks.cuboid_self_attention import CuboidSelfAttention
 from fleiadex.blocks.positional_ffn import PositionalFFN

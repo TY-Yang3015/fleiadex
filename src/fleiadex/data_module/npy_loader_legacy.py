@@ -9,99 +9,31 @@ import numpy as np
 from PIL import Image
 import math
 import jax.numpy as jnp
+import os
 
 
-def save_image(
-    data_loader,
-    save_dir: str,
-    ndarray: jnp.ndarray,
-    fp: any,
-    nrow: int = 8,
-    padding: int = 2,
-    pad_value: float = 0.0,
-    format_img: any = None,
-):
-    """Make a grid of images and Save it into an image file.
-
-    Args:
-        data_loader (LegacyDataLoader): the dataloader object.
-        save_dir (str): the directory to save the image file.
-        ndarray (array_like): 4D mini-batch images of shape (B x H x W x C)
-        fp:  A filename(string) or file object
-        nrow (int, optional): Number of images displayed in each row of the grid.
-          The final grid size is ``(B / nrow, nrow)``. Default: ``8``.
-        padding (int, optional): amount of padding. Default: ``2``.
-        pad_value (float, optional): Value for the padded pixels. Default: ``0``.
-        format_img(Optional):  If omitted, the format to use is determined from the
-          filename extension. If a file object was used instead of a filename,
-          this parameter should always be used.
-    """
-
-    if not (
-        isinstance(ndarray, jnp.ndarray)
-        or (
-            isinstance(ndarray, list)
-            and all(isinstance(t, jnp.ndarray) for t in ndarray)
-        )
-    ):
-        raise TypeError(f"array_like of tensors expected, got {type(ndarray)}")
-
-    ndarray = jnp.asarray(ndarray)
-
-    if data_loader.rescale_min is None or data_loader.rescale_max is None:
-        ndarray -= data_loader.data_min
-        ndarray *= data_loader.data_max - data_loader.data_min
-    else:
-        ndarray -= data_loader.rescale_min
-        ndarray *= data_loader.rescale_max - data_loader.rescale_min
-
-    if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
-        ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)
-    elif ndarray.ndim == 4 and ndarray.shape[-1] > 3:
-        ndarray = ndarray[:, :, :, :3]
-
-    # adjust intensity for visualisation purpose
-    ndarray *= 2
-
-    # make the mini-batch of images into a grid
-    nmaps = ndarray.shape[0]
-    xmaps = min(nrow, nmaps)
-    ymaps = int(math.ceil(float(nmaps) / xmaps))
-    height, width = (
-        int(ndarray.shape[1] + padding),
-        int(ndarray.shape[2] + padding),
-    )
-    num_channels = ndarray.shape[3]
-    grid = jnp.full(
-        (height * ymaps + padding, width * xmaps + padding, num_channels),
-        pad_value,
-    ).astype(jnp.float32)
-    k = 0
-    for y in range(ymaps):
-        for x in range(xmaps):
-            if k >= nmaps:
-                break
-            grid = grid.at[
-                y * height + padding : (y + 1) * height,
-                x * width + padding : (x + 1) * width,
-            ].set(ndarray[k])
-            k = k + 1
-
-    # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
-    ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
-    im = Image.fromarray(ndarr.copy(), mode="RGB")
-    im.save(save_dir + fp, format=format_img)
+def max_depth(directory):
+    max_depth = 0
+    for root, dirs, _ in os.walk(directory):
+        # Calculate the current depth by counting the separators in the path
+        current_depth = root.count(os.sep) - directory.count(os.sep)
+        if current_depth > max_depth:
+            max_depth = current_depth
+    return max_depth
 
 
-class LegacyDataLoader:
+class FleiadexDataLoader:
     """
     the dataloader for ``.npy`` format dataset.
 
     :var data_dir: the data directory, must be a string.
     :var batch_size: the batch size.
-    :var rescale_max: the max value of rescaling. only applies when both rescle_max and rescale_max are set.
-    :var rescale_min: the min value of rescaling. only applies when both rescle_max and rescale_min are set.
-    :var validation_size: the validation set size.
+    :var fixed_normalisation_spec: only specify if you pre-computed the mean and std and want to normalise the
+        data based on these values. dimension must match channel number.
+    :var pre_split: bool. only set to ``True`` if you organised train and validation dataset in train and val folders.
+    :var rescale_max: the max value of rescaling. only applies when both rescale_max and rescale_max are set.
+    :var rescale_min: the min value of rescaling. only applies when both rescale_max and rescale_min are set.
+    :var validation_size: the validation set size. when ``pre_split`` is set to ``True``, then this will be ignored.
     :var sequenced: whether the loaded data should be sequenced.
     :var sequence_length: the length of sequence if sequenced is True.
     :var auto_normalisation: whether to automatically normalise the data on the channel axis. the axis will
@@ -113,25 +45,104 @@ class LegacyDataLoader:
     """
 
     def __init__(
-        self,
-        data_dir: str,
-        batch_size: int,
-        image_channels: int = 4,
-        rescale_max: float | None = None,
-        rescale_min: float | None = None,
-        validation_size: float = 0.2,
-        sequenced: bool = False,
-        sequence_length: int = 1,
-        auto_normalisation: bool = True,
-        target_layout: str = "h w c",
-        image_size: int = 128,
-        *args,
-        **kwargs,
+            self,
+            data_dir: str,
+            batch_size: int,
+            fixed_normalisation_spec: tuple[list] | None = None,
+            pre_split: bool = False,
+            image_channels: int = 4,
+            rescale_max: float | None = None,
+            rescale_min: float | None = None,
+            validation_size: float = 0.2,
+            sequenced: bool = False,
+            sequence_length: int = 1,
+            auto_normalisation: bool = True,
+            target_layout: str = "h w c",
+            output_image_size: int = 128,
+            *args,
+            **kwargs,
     ):
+        self.auto_normalisation = auto_normalisation
+        self.pre_split = pre_split
+        self.fixed_normalisation_spec = None
+
+        if fixed_normalisation_spec is not None:
+            self.auto_normalisation = False
+            self.fixed_normalisation_spec = jnp.array(list(fixed_normalisation_spec))
+            logging.info('fixed normalisation data spec received. auto-normalisation disabled.')
+            logging.info(f'channel-wise mean: {self.fixed_normalisation_spec[0]}')
+            logging.info(f'channel-wise std: {self.fixed_normalisation_spec[1]}')
+
+        def reshape_element(element):
+            shape = tf.shape(element)
+
+            if len(shape) == 4:
+                reshaped = tf.reshape(element, [-1, shape[1], shape[2], shape[3]])
+                return reshaped
+            else:
+                return element
+
+        def load_npy_file(file_path):
+            data = np.load(file_path)
+
+            return reshape_element(data.astype(np.float32))
+
+        if data_dir.endswith(".npy"):
+            self.data = tf.data.Dataset.from_tensor_slices(jnp.load(data_dir))
+            logging.info(f"loaded single .npy file {data_dir}.")
+        else:
+            if self.pre_split:
+                logging.info(f"searching for split train val data from {data_dir}.")
+                self.train_dir = data_dir + "/train"
+                self.validation_dir = data_dir + "/val"
+
+                if (max_depth(self.train_dir) != 0) or (max_depth(self.validation_dir) != 0):
+                    raise ValueError(f"split data directory should not contain any subfolders.")
+                else:
+                    npy_files_dirs_train = []
+                    for subdir in os.listdir(self.train_dir):
+                        if str(subdir).endswith(".npy"):
+                            npy_files_dirs_train.append(self.train_dir + '/' + subdir)
+
+                    self.train_data = tf.data.Dataset.from_tensor_slices(npy_files_dirs_train)
+                    self.train_data = self.train_data.map(
+                        lambda x: tf.numpy_function(load_npy_file, [x], [tf.float32]),
+                        num_parallel_calls=tf.data.AUTOTUNE,
+                    )
+
+                npy_files_dirs_val = []
+                for subdir in os.listdir(self.validation_dir):
+                    if str(subdir).endswith(".npy"):
+                        npy_files_dirs_val.append(self.validation_dir + '/' + subdir)
+
+                self.validation_data = tf.data.Dataset.from_tensor_slices(npy_files_dirs_val)
+                self.validation_data = self.validation_data.map(
+                    lambda x: tf.numpy_function(load_npy_file, [x], [tf.float32]),
+                    num_parallel_calls=tf.data.AUTOTUNE,
+                )
+
+            else:
+                if max_depth(data_dir) != 0:
+                    raise ValueError(f"data directory should not contain any subfolders."
+                                     f" turn on by set pre_split=True if you intended to pass a dataset"
+                                     f"with pre-defined train and val dataset.")
+                else:
+                    npy_files_dirs = []
+                    for subdir in os.listdir(data_dir):
+                        if str(subdir).endswith(".npy"):
+                            npy_files_dirs.append(data_dir + '/' + subdir)
+
+                    self.data = tf.data.Dataset.list_files(npy_files_dirs)
+                    self.data = self.data.map(
+                        lambda x: tf.numpy_function(load_npy_file, [x], [tf.float32]),
+                        num_parallel_calls=tf.data.AUTOTUNE,
+                    )
 
         self.data_dir = data_dir
-        self.data = np.load(data_dir)
-        self.origin_shape = self.data.shape
+        self.origin_shape = (self.data.cardinality().numpy() if not self.pre_split
+                             else self.train_data.concatenate(self.validation_data).cardinality().numpy(),) + (
+                                next(self.data.take(1).as_numpy_iterator())[0].shape if not self.pre_split
+                                else next(self.train_data.take(1).as_numpy_iterator())[0].shape)
         self.batch_size = batch_size
         self.channels = image_channels
         self.rescale_max = rescale_max
@@ -143,49 +154,96 @@ class LegacyDataLoader:
         else:
             self.sequence_length = None
 
-        self.auto_normalisation = auto_normalisation
         self.target_layout = target_layout
-        self.output_image_size = image_size
+        self.output_image_size = output_image_size
 
-        self._make_layout()
+        if self.pre_split:
+            self.train_data = self.train_data.map(lambda x: self._make_layout(x),
+                                                  num_parallel_calls=tf.data.AUTOTUNE, )
+            self.validation_data = self.validation_data.map(lambda x: self._make_layout(x),
+                                                            num_parallel_calls=tf.data.AUTOTUNE, )
+        else:
+            self.data = self.data.map(lambda x: self._make_layout(x),
+                                      num_parallel_calls=tf.data.AUTOTUNE, )
 
         if len(self.target_layout.split(" ")) != 3:
             raise ValueError(
-                "target layout is only required for the last" "3 channels."
+                "target layout is only required for the last 3 channels."
             )
 
+        self.channels = (int(next(self.data.take(1).as_numpy_iterator()).shape[-1]) if not self.pre_split
+                         else int(next(self.train_data.take(1).as_numpy_iterator()).shape[-1]))
+
+        if self.fixed_normalisation_spec is not None:
+            assert self.channels == jnp.shape(self.fixed_normalisation_spec)[-1], ("channel number must"
+                                                                                   "match the normalisation parameter"
+                                                                                   "dimensions.")
+
         if self.target_layout.split(" ")[-1] == "c".casefold():
-            self.std = np.std(self.data, axis=(0, 1, 2), ddof=1)
-            self.mean = np.mean(self.data, axis=(0, 1, 2))
+            if self.pre_split:
+                self.mean, self.std = self._get_distribution_spec(self.train_data.concatenate(self.validation_data),
+                                                                  (0, 1))
+            else:
+                self.mean, self.std = self._get_distribution_spec(self.data, (0, 1))
         else:
-            self.std = np.std(self.data, axis=(0, 2, 3), ddof=1)
-            self.mean = np.mean(self.data, axis=(0, 2, 3))
+            if self.pre_split:
+                self.mean, self.std = self._get_distribution_spec(self.train_data.concatenate(self.validation_data),
+                                                                  (1, 2))
+            else:
+                self.mean, self.std = self._get_distribution_spec(self.data, (1, 2))
 
-        size = len(self.data)
+        if pre_split is not True:
+            size = float(self.data.cardinality() if not pre_split else (self.train_data.cardinality()
+                                                                        + self.validation_data.cardinality()))
 
-        if self.validation_size == 0:
-            raise ValueError("validation size must" "non-zero.")
+            if self.validation_size == 0:
+                raise ValueError("validation size must be non-zero.")
+            else:
+                self.validation_length = int(self.validation_size * size)
+
+        if self.pre_split:
+            self.data_max = self.train_data.concatenate(self.validation_data).reduce(0.,
+                                                                                     lambda x, y: float(tf.reduce_max(
+                                                                                         tf.stack([tf.reduce_max(x),
+                                                                                                   tf.reduce_max(y)]))
+                                                                                     ))
+            self.data_min = self.train_data.concatenate(self.validation_data).reduce(0.,
+                                                                                     lambda x, y: float(tf.reduce_min(
+                                                                                         tf.stack([tf.reduce_min(x),
+                                                                                                   tf.reduce_min(
+                                                                                                       y)]))
+
+                                                                                     ))
         else:
-            self.validation_length = int(self.validation_size * size)
-
-        self.data_max = np.max(self.data)
-        self.data_min = np.min(self.data)
+            self.data_max = self.data.reduce(0., lambda x, y: float(tf.reduce_max(
+                tf.stack([tf.reduce_max(x),
+                          tf.reduce_max(
+                              y)]))))
+            self.data_min = self.data.reduce(0., lambda x, y: float(tf.reduce_min(
+                tf.stack([tf.reduce_min(x),
+                          tf.reduce_min(
+                              y)]))))
 
         self.__processed__ = False
 
-    def _make_layout(self):
+    def _make_layout(self, data: jnp.ndarray) -> jnp.ndarray:
         # check the last three dims (C H W) / (H W C)
-        shape = np.array(np.shape(self.data))[-3:]
+        shape = self.origin_shape[-3:]
+        if len(shape) == 2:
+            data = tf.expand_dims(data, axis=-1)
+            shape = data.shape[-3:]
+
+        data = tf.ensure_shape(data, [None, None, None])
         if shape[0] == shape[1]:
             if self.target_layout.split(" ")[-1] == "c".casefold():
                 pass
             else:
-                self.data = rearrange(self.data, "b w h c -> b c w h")
+                data = rearrange(data, "w h c -> c w h")
         elif shape[1] == shape[2]:
             if self.target_layout.split(" ")[0] == "c".casefold():
                 pass
             else:
-                self.data = rearrange(self.data, "b c w h -> b w h c")
+                data = rearrange(data, "c w h -> w h c")
         elif shape[0] != shape[1] != shape[2]:
             raise ValueError("shape mismatch, only " "square images are supported.")
         else:
@@ -195,19 +253,44 @@ class LegacyDataLoader:
                 "None and manually adjust the"
                 "layout."
             )
-        return self
+        return data
 
-    def _preprocess(self):
+    def _get_distribution_spec(self, dataset: tf.data.Dataset, reduced_axis: tuple[int, int]):
+        """
+        calculate mean and std dynamically for large dataset.
 
-        if self.__processed__:
-            return self
+        $$s^2 = \frac{\sum s_i^2 + (\mu_i - \mu)^2}{N}$$
+
+        **this equation assumes a large sample size. (sampling ddof not taken into account)**
+        """
+
+        element_var = dataset.map(lambda x: tf.math.square(tf.math.reduce_std(x, axis=reduced_axis)))
+        element_mean = dataset.map(lambda x: tf.math.reduce_mean(x, axis=reduced_axis))
+
+        size = float(dataset.cardinality())
+
+        overall_mean = element_mean.reduce(jnp.zeros(self.channels), lambda x, y: x + y) / size
+
+        overall_var = element_var.reduce(jnp.zeros(self.channels), lambda x, y: x + y) / size
+
+        mean_dist = element_mean.map(lambda x: tf.math.square(x - overall_mean)).reduce(jnp.zeros(self.channels),
+                                                                                        lambda x, y: x + y)
+        mean_dist /= size
+
+        overall_std = tf.math.sqrt(mean_dist + overall_var)
+
+        return overall_mean, overall_std
+
+    def _preprocess(self, data: jnp.ndarray) -> jnp.ndarray:
 
         if self.auto_normalisation:
-            self.data = (self.data - self.mean) / self.std
+            data = (data - self.mean) / self.std
+        elif self.fixed_normalisation_spec is not None:
+            data = (data - self.fixed_normalisation_spec[0]) / self.fixed_normalisation_spec[1]
 
         if self.target_layout.split(" ")[-1] == "c".casefold():
-            self.data = tf.image.resize(
-                self.data,
+            data = tf.image.resize(
+                data,
                 (
                     self.output_image_size,
                     self.output_image_size,
@@ -215,35 +298,31 @@ class LegacyDataLoader:
                 method="nearest",
             )
         else:
-            self.data = tf.image.resize(
-                self.data,
+            data = tf.image.resize(
+                data,
                 (
-                    self.data.shape[0],
-                    self.data.shape[1],
+                    data.shape[0],
+                    data.shape[1],
                     self.output_image_size,
                     self.output_image_size,
                 ),
                 method="nearest",
             )
 
-        if not ((self.rescale_max is None) or (self.rescale_min is None)):
-            self.data -= self.data_min
-            self.data /= self.data_max - self.data_min
-            self.data *= self.rescale_max - self.rescale_min
-            self.data += self.rescale_min
-            logging.info(
-                f"dataset rescaled to [{np.max(self.data)}, {np.min(self.data)}]"
-            )
-        else:
-            logging.info("no scaling was applied.")
+        if not ((self.rescale_max is None) and (self.rescale_min is None)):
+            data -= self.data_min
+            data /= self.data_max - self.data_min
+            data *= self.rescale_max - self.rescale_min
+            data += self.rescale_min
 
-        self.__processed__ = True
-
-        return self
+        return data
 
     def _train_val_split(self):
-        self.validation_data = self.data[: self.validation_length]
-        self.train_data = self.data[self.validation_length :]
+        if self.pre_split:
+            pass
+        else:
+            self.validation_data = self.data.take(self.validation_length)
+            self.train_data = self.data.skip(self.validation_length)
 
         return self
 
@@ -258,39 +337,44 @@ class LegacyDataLoader:
                 logging.error("failed to save the dataset spec.")
 
         summary = {}
-        summary["original_shape"] = self.origin_shape
-        summary["processed_shape"] = self.data.shape
-        summary["channel-wise_mean"] = self.mean.tolist()
-        summary["channel-wise_std"] = self.std.tolist()
-        summary["validation_size"] = self.validation_size
-        summary["validation_length"] = self.validation_length
-        summary["data_max"] = self.data_max
-        summary["data_min"] = self.data_min
+        summary["original_shape"] = [int(i) for i in self.origin_shape]
+        processed_shape = (self.train_data.concatenate(
+            self.validation_data).cardinality().numpy().astype(int) if self.pre_split else
+                           self.data.cardinality().numpy().astype(int),) + ((next(
+            self.train_data.take(1).as_numpy_iterator()).shape) if self.pre_split else
+                                                                            next(self.data.take(
+                                                                                1).as_numpy_iterator()).shape)
+        summary["processed_shape"] = [int(i) for i in processed_shape]
+        if self.auto_normalisation or (self.fixed_normalisation_spec is not None):
+            summary["channel-wise_mean"] = list(self.mean.numpy().astype(float))
+            summary["channel-wise_std"] = list(self.std.numpy().astype(float))
+        if not self.pre_split:
+            summary["validation_size"] = float(self.validation_size)
+            summary["validation_length"] = int(self.validation_length)
+        summary["data_max"] = float(self.data_max.numpy())
+        summary["data_min"] = float(self.data_min.numpy())
+
+        for key, value in summary.items():
+            if isinstance(value, np.int64):
+                summary[key] = int(value)
+            if isinstance(value, np.float32):
+                summary[key] = float(value)
 
         with open(f"{save_dir}/summary.json", "w") as f:
             json.dump(summary, f)
 
         return self
 
-    def read_data_summary(self, json_dir: str):
-        with open(json_dir, "r") as f:
-            summary = json.load(f)
-
-        self.mean = np.array(summary["channel-wise_mean"])
-        self.std = np.array(summary["channel-wise_std"])
-        self.validation_size = np.array(summary["validation_size"])
-        self.validation_length = np.array(summary["validation_length"])
-        self.data_max = np.array(summary["data_max"])
-        self.data_min = np.array(summary["data_min"])
-
-        logging.info("dataset summary read successfully.")
-        return self
-
     def get_train_test_dataset(self):
-        self._preprocess()._train_val_split()
+        self._train_val_split()
 
-        train_dataset = tf.data.Dataset.from_tensor_slices(self.train_data)
-        val_dataset = tf.data.Dataset.from_tensor_slices(self.validation_data)
+        if not self.__processed__:
+            train_dataset = self.train_data.map(lambda x: self._preprocess(x), num_parallel_calls=tf.data.AUTOTUNE)
+            val_dataset = self.validation_data.map(lambda x: self._preprocess(x), num_parallel_calls=tf.data.AUTOTUNE)
+            self.__processed__ = True
+        else:
+            train_dataset = self.train_data
+            val_dataset = self.validation_data
 
         train_dataset = train_dataset.cache()
         val_dataset = val_dataset.cache()
@@ -336,7 +420,7 @@ class LegacyDataLoader:
             self.val_dataset.as_numpy_iterator(),
         )
 
-    def reverse_preprocess(self, image):
+    def reverse_preprocess(self, image: jnp.ndarray) -> jnp.ndarray:
 
         if self.target_layout.split(" ")[-1] == "c".casefold():
             image = image * self.std + self.mean
@@ -353,7 +437,7 @@ class LegacyDataLoader:
             else:
                 image = rearrange(image, "b h w c -> b c h w")
 
-        if not ((self.rescale_max is None) or (self.rescale_min is None)):
+        if not ((self.rescale_max is None) and (self.rescale_min is None)):
             image -= self.rescale_min
             image /= self.rescale_max
             image *= self.data_max - self.data_min
@@ -361,31 +445,20 @@ class LegacyDataLoader:
 
         return image
 
-    def save_image(
-        self, save_dir, ndarray, fp, nrow=8, padding=2, pad_value=0.0, format_img=None
-    ):
-
-        return save_image(
-            self,
-            save_dir,
-            ndarray,
-            fp,
-            nrow=nrow,
-            padding=padding,
-            pad_value=pad_value,
-            format_img=format_img,
-        )
-
     def get_complete_dataset(
-        self,
-        batched: bool = False,
-        sequenced: bool = False,
-        repeat: bool = False,
-        as_iterator: bool = True,
+            self,
+            batched: bool = False,
+            sequenced: bool = False,
+            repeat: bool = False,
+            as_iterator: bool = True,
     ):
-        self._preprocess()
+        if self.pre_split:
+            self.data = self.train_data.concatenate(self.validation_data)
 
-        dataset = tf.data.Dataset.from_tensor_slices(self.data).cache()
+        if not self.__processed__:
+            self.data = self.data.map(self._preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+
+        dataset = self.data.cache()
 
         if sequenced and batched:
             dataset = dataset.batch(self.sequence_length, drop_remainder=True).batch(
@@ -408,13 +481,14 @@ class LegacyDataLoader:
         else:
             return dataset
 
-
-# dataloader = DataLoader(
-#    data_dir='/home/arezy/Desktop/fleiadex/src/fleiadex/exp_data/satel_array_202312bandopt00_clear.npy',
+#dataloader = FleiadexDataLoader(
+#    data_dir='/home/arezy/Desktop/satel_clean/',
+#    pre_split=True,
+#    fixed_normalisation_spec=([264.5569, 249.6994, 228.8998, 242.5480],
+#                              [25.1830, 18.3450, 7.5322, 13.1226]),
 #    batch_size=10,
-#    sequenced=True,
-#    sequence_length=12,
 #    output_image_size=16
-# )
+#)
 
-# print(next(dataloader.get_train_test_dataset()[0]).shape)
+#print(next(dataloader.get_train_test_dataset()[0]).shape)
+#print(dataloader.origin_shape)

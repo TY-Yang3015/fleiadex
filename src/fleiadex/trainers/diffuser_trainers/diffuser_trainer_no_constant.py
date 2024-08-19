@@ -14,6 +14,7 @@ from clu import platform
 from jax.lib import xla_bridge
 import tensorflow as tf
 import hydra.utils as hydra_utils
+from einops import rearrange
 
 import orbax.checkpoint as ocp
 import etils.epath as path
@@ -22,7 +23,7 @@ import hydra
 from omegaconf import OmegaConf
 
 from fleiadex.nn_models import VAE
-from fleiadex.utils import mse, TrainStateWithDropout
+from fleiadex.utils import mse, TrainStateWithDropout, save_many_images, save_image
 from fleiadex.diffuser import DDPMCore
 from fleiadex.config import LDMConfig
 
@@ -55,13 +56,14 @@ class Trainer:
         self.train_key, self.train_rng = random.split(self.train_key)
 
         # the diffusion express
-        self.diffusor = DDPMCore(
+        self.diffuser = DDPMCore(
             config=self.config,
             diffusion_time_steps=self.config["hyperparams"]["diffusion_time_steps"],
         )
 
         logging.info("initializing dataset.")
         self.data_loader = hydra_utils.instantiate(config.data_spec, _recursive_=False)
+
         (
             self.train_ds,
             self.test_ds,
@@ -73,8 +75,9 @@ class Trainer:
         # optimiser with exponential moving average
         self.optimiser = self._get_optimiser(self.config)
         self.optimiser = optax.chain(
-            optax.ema(0.99),
+            optax.clip_by_global_norm(self.config['hyperparams']['gradient_clipping']),
             self.optimiser,
+            optax.ema(self.config['hyperparams']['ema_decay']),
         )
 
         # indicator of vae availability
@@ -86,6 +89,11 @@ class Trainer:
             self.config["data_spec"]["condition_length"]
             + self.config["data_spec"]["prediction_length"]
         )
+
+        # calculate prediction saving frame length
+        self.save_length = (self.config["data_spec"]["condition_length"] +
+                            3*self.config["data_spec"]["prediction_length"])
+        self.save_length = self.save_length if self.save_length < 10 else 10
 
     def _init_rng(self) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         init_key = random.PRNGKey(42)
@@ -115,6 +123,9 @@ class Trainer:
 
     def _update_train_rng(self) -> None:
         self.train_key, self.train_rng = random.split(self.train_key)
+
+    def _update_eval_rng(self) -> None:
+        self.eval_rng, _ = random.split(self.eval_rng)
 
     def _get_next_train_batch(self):
         batch = next(self.train_ds)
@@ -204,11 +215,27 @@ class Trainer:
         rngs = {"params": random.PRNGKey(0), "dropout": random.PRNGKey(42)}
         params = vae.init(rngs, init_data, random.key(0), False)["params"]
 
+        vae_optimiser = optax.chain(
+            optax.clip_by_global_norm(vae_config['hyperparams']['gradient_clipping']),
+            self._get_optimiser(vae_config), )
+
         vae_state = TrainStateWithDropout.create(
             apply_fn=vae.apply,
             params=params,
-            tx=self._get_optimiser(vae_config),
+            tx=vae_optimiser,
             key=self.dropout_rng,
+        )
+
+
+        sharding = jax.sharding.NamedSharding(
+            mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+            spec=jax.sharding.PartitionSpec(),
+        )
+
+        create_sharded_array = lambda x: jax.device_put(x, sharding)
+        vae_state = jax.tree_util.tree_map(create_sharded_array, vae_state)
+        vae_state = jax.tree_util.tree_map(
+            ocp.utils.to_shape_dtype_struct, vae_state
         )
 
         restored = mngr.restore(
@@ -230,16 +257,32 @@ class Trainer:
 
         def evaluate(diffuser):
 
-            pred, true = diffuser.apply(
+            pred, true, t = diffuser.apply(
                 {"params": params},
                 test_batch,
                 self.eval_rng,
-                False,
+                False, return_t=True,
                 rngs={"dropout": self.dropout_rng},
             )
 
+            expect = test_batch[:, self.config["data_spec"]["condition_length"]:]
+            noised_expect = diffuser.apply(
+                {"params": params},
+                expect, true, t,
+                rngs={"dropout": self.dropout_rng},
+                method="add_noise_to"
+            )
+
+            denoised_expect = diffuser.apply(
+                {"params": params},
+                noised_expect, pred, t, self.eval_rng,
+                rngs={"dropout": self.dropout_rng},
+                method="denoise"
+            )
+
             predictions = jnp.concatenate(
-                [test_batch[:, : self.config["data_spec"]["condition_length"]], pred],
+                [test_batch[:, :self.config["data_spec"]["condition_length"]],
+                 expect, noised_expect, denoised_expect],
                 axis=1,
             )
 
@@ -247,10 +290,12 @@ class Trainer:
                 {"params": self.vae.params}, predictions, method="decode"
             )
 
+            predictions = rearrange(predictions, 'b t w h c -> (b t) w h c')
+
             metrics = compute_metric(pred, true)
             return metrics, predictions
 
-        return nn.apply(evaluate, self.diffusor)(
+        return nn.apply(evaluate, self.diffuser)(
             {"params": params}, rngs={"dropout": self.dropout_rng}
         )
 
@@ -262,32 +307,51 @@ class Trainer:
 
         def evaluate(diffuser):
 
-            pred, true = diffuser.apply(
+            pred, true, t = diffuser.apply(
                 {"params": params},
                 test_batch,
                 self.eval_rng,
-                False,
+                False, return_t=True,
                 rngs={"dropout": self.dropout_rng},
             )
+
+            expect = test_batch[:, self.config["data_spec"]["condition_length"]:]
+            noised_expect = diffuser.apply(
+                {"params": params},
+                expect, true, t,
+                rngs={"dropout": self.dropout_rng},
+                method="add_noise_to"
+            )
+
+            denoised_expect = diffuser.apply(
+                {"params": params},
+                noised_expect, pred, t, self.eval_rng,
+                rngs={"dropout": self.dropout_rng},
+                method="denoise"
+            )
+
             predictions = jnp.concatenate(
-                [test_batch[:, : self.config["data_spec"]["condition_length"]], pred],
+                [test_batch[:, :self.config["data_spec"]["condition_length"]],
+                 expect, noised_expect, denoised_expect],
                 axis=1,
             )
+
+            predictions = rearrange(predictions, 'b t w h c -> (b t) w h c')
 
             metrics = compute_metric(pred, true)
             return metrics, predictions
 
-        return nn.apply(evaluate, self.diffusor)(
+        return nn.apply(evaluate, self.diffuser)(
             {"params": params}, rngs={"dropout": self.dropout_rng}
         )
 
     def _save_output(self, save_dir, prediction, step):
         if self.config["hyperparams"]["save_prediction"]:
-            self.data_loader.save_image(
+            save_image(
                 save_dir + "/predictions",
                 prediction,
                 f"/prediction_{int(step + 1)}.png",
-                nrow=self.temporal_length,
+                nrow=self.save_length,
             )
 
     def _clear_result(self):
@@ -327,11 +391,11 @@ class Trainer:
                 "dropout": random.PRNGKey(42),
                 "constants": self.const_rng,
             }
-            collections = self.diffusor.init(rngs, init_data, self.train_rng, False)
+            collections = self.diffuser.init(rngs, init_data, self.train_rng, False)
             params = collections["params"]
 
             state = TrainStateWithDropout.create(
-                apply_fn=self.diffusor.apply,
+                apply_fn=self.diffuser.apply,
                 params=params,
                 tx=self.optimiser,
                 key=self.dropout_rng,
@@ -345,11 +409,10 @@ class Trainer:
             else:
                 sharding = jax.sharding.NamedSharding(
                     mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
-                    spec=jax.sharding.PartitionSpec("model"),
+                    spec=jax.sharding.PartitionSpec(),
                 )
             create_sharded_array = lambda x: jax.device_put(x, sharding)
             state = jax.tree_util.tree_map(create_sharded_array, state)
-            jax.tree_util.tree_map(lambda x: x.sharding, state)
 
             save_path = ocp.test_utils.erase_and_create_empty(
                 os.path.abspath(self.save_dir + "/ckpt")
@@ -363,7 +426,7 @@ class Trainer:
                 diffusor_mngr = ocp.CheckpointManager(
                     save_path,
                     options=save_options,
-                    item_names=("diffusor_state", "config"),
+                    item_names=("diffuser_state", "config"),
                 )
 
             for step in range(1, self.config["hyperparams"]["step"] + 1):
@@ -377,12 +440,13 @@ class Trainer:
                     diffusor_mngr.save(
                         step,
                         args=ocp.args.Composite(
-                            diffusor_state=ocp.args.StandardSave(state),
+                            diffuser_state=ocp.args.StandardSave(state),
                             config=ocp.args.JsonSave(self.config.unfreeze()),
                         ),
                     )
 
                 current_test = self._get_next_test_batch_pre_coded()
+                self._update_eval_rng()
 
                 metrics, prediction = self._evaluate_pre_encoded(
                     state.params, current_test
@@ -425,11 +489,11 @@ class Trainer:
                 "dropout": random.PRNGKey(42),
                 "constants": self.const_rng,
             }
-            collections = self.diffusor.init(rngs, init_data, self.train_rng, False)
+            collections = self.diffuser.init(rngs, init_data, self.train_rng, False)
             params = collections["params"]
 
             state = TrainStateWithDropout.create(
-                apply_fn=self.diffusor.apply,
+                apply_fn=self.diffuser.apply,
                 params=params,
                 tx=self.optimiser,
                 key=self.dropout_rng,
@@ -443,11 +507,10 @@ class Trainer:
             else:
                 sharding = jax.sharding.NamedSharding(
                     mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
-                    spec=jax.sharding.PartitionSpec("model"),
+                    spec=jax.sharding.PartitionSpec(),
                 )
             create_sharded_array = lambda x: jax.device_put(x, sharding)
             state = jax.tree_util.tree_map(create_sharded_array, state)
-            jax.tree_util.tree_map(lambda x: x.sharding, state)
 
             save_path = ocp.test_utils.erase_and_create_empty(
                 os.path.abspath(self.save_dir + "/ckpt")
@@ -461,7 +524,7 @@ class Trainer:
                 diffusor_mngr = ocp.CheckpointManager(
                     save_path,
                     options=save_options,
-                    item_names=("diffusor_state", "config"),
+                    item_names=("diffuser_state", "config"),
                 )
 
             for step in range(1, self.config["hyperparams"]["step"] + 1):
@@ -475,12 +538,13 @@ class Trainer:
                     diffusor_mngr.save(
                         step,
                         args=ocp.args.Composite(
-                            diffusor_state=ocp.args.StandardSave(state),
+                            diffuser_state=ocp.args.StandardSave(state),
                             config=ocp.args.JsonSave(self.config.unfreeze()),
                         ),
                     )
 
                 current_test = self._get_next_test_batch()
+                self._update_eval_rng()
 
                 metrics, prediction = self._evaluate(state.params, current_test)
 

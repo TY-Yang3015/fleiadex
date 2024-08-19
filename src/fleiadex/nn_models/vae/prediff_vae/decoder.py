@@ -11,6 +11,7 @@ class Decoder(nn.Module):
     spatial_upsample_schedule: tuple[int] = (2, 2, 2)
     channel_schedule: tuple[int] = (512, 256, 128)
     resnet_depth_schedule: tuple[int] = (3, 3, 3)
+    use_attention: bool = True
     attention_heads: int = 8
     attention_use_qkv_bias: bool = False
     attention_use_dropout: bool = True
@@ -151,7 +152,9 @@ class Decoder(nn.Module):
             raise ValueError()
 
         x = self.conv_projection(x)
-        x = self.attention(x, train)
+
+        if self.use_attention:
+            x = self.attention(x, train)
 
         i = 0
         for res_blocks, upsampler in zip(self.resnet_block_lists, self.upsampler_lists):

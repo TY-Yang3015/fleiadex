@@ -27,6 +27,7 @@ from fleiadex.utils import (
     discriminator_loss,
     TrainStateWithDropout,
     TrainStateWithBatchStats,
+    save_image
 )
 from fleiadex.nn_models import Discriminator
 
@@ -91,6 +92,13 @@ class Trainer:
         # get optimisers
         self.vae_optimiser = self._get_optimiser(self.config)
         self.disc_optimiser = self._get_optimiser(self.config)
+
+        self.vae_optimiser = optax.chain(
+            optax.clip_by_global_norm(self.config['hyperparams']['gradient_clipping']),
+            self.vae_optimiser,)
+        self.disc_optimiser = optax.chain(
+            optax.clip_by_global_norm(self.config['hyperparams']['gradient_clipping']),
+            self.disc_optimiser,)
 
         # instantiate discriminator
         self.discriminator = Discriminator()
@@ -360,11 +368,9 @@ class Trainer:
         )
 
     def _save_output(self, save_dir, comparison, sample, epoch):
-        comparison = self.data_loader.reverse_preprocess(comparison)
-        sample = self.data_loader.reverse_preprocess(sample)
 
         if self.config["hyperparams"]["save_comparison"]:
-            self.data_loader.save_image(
+            save_image(
                 save_dir + "/comparison",
                 comparison,
                 f"/comparison_{int(epoch + 1)}.png",
@@ -372,7 +378,7 @@ class Trainer:
             )
 
         if self.config["hyperparams"]["save_sample"]:
-            self.data_loader.save_image(
+            save_image(
                 save_dir + "/sample",
                 sample,
                 f"/sample_{int(epoch + 1)}.png",
@@ -435,11 +441,30 @@ class Trainer:
         self.vae_optimiser = self._get_optimiser(self.config)
         self.disc_optimiser = self._get_optimiser(self.config)
 
+        self.vae_optimiser = optax.chain(
+            optax.clip_by_global_norm(self.config['hyperparams']['gradient_clipping']),
+            self.vae_optimiser, )
+
+        self.disc_optimiser = optax.chain(
+            optax.clip_by_global_norm(self.config['hyperparams']['gradient_clipping']),
+            self.disc_optimiser, )
+
         vae_state = TrainStateWithDropout.create(
             apply_fn=self.vae.apply,
             params=params,
             tx=self.vae_optimiser,
             key=self.dropout_rng,
+        )
+
+        sharding = jax.sharding.NamedSharding(
+            mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+            spec=jax.sharding.PartitionSpec(),
+        )
+
+        create_sharded_array = lambda x: jax.device_put(x, sharding)
+        vae_state = jax.tree_util.tree_map(create_sharded_array, vae_state)
+        vae_state = jax.tree_util.tree_map(
+            ocp.utils.to_shape_dtype_struct, vae_state
         )
 
         if step:
@@ -467,6 +492,11 @@ class Trainer:
                     batch_stats=discriminator_batch_stats,
                 )
 
+                discriminator_state = jax.tree_util.tree_map(create_sharded_array, discriminator_state)
+                discriminator_state = jax.tree_util.tree_map(
+                    ocp.utils.to_shape_dtype_struct, discriminator_state
+                )
+
                 if step:
                     restored_disc = mngr.restore(
                         step, args=ocp.args.StandardRestore(discriminator_state)
@@ -487,7 +517,7 @@ class Trainer:
 
         del mngr
 
-    def train(self, auxiliary_metric=False):
+    def train(self):
         logging.info("initializing model.")
         init_data = jnp.ones(
             (
@@ -544,8 +574,6 @@ class Trainer:
         discriminator_state = jax.tree_util.tree_map(
             create_sharded_array, discriminator_state
         )
-        jax.tree_util.tree_map(lambda x: x.sharding, vae_state)
-        jax.tree_util.tree_map(lambda x: x.sharding, discriminator_state)
 
         save_vae_path = ocp.test_utils.erase_and_create_empty(
             os.path.abspath(self.save_dir + "/vae_ckpt")
@@ -622,43 +650,44 @@ class Trainer:
             if (step % 1000 == 0) and (step != 0):
                 self._clear_result()
 
-            if step > self.config["hyperparams"]["discriminator_start_after"]:
-                logging.info(
-                    "step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}, disc: {:.4f}".format(
-                        step + 1,
-                        vae_metrics["loss"],
-                        vae_metrics["mse"],
-                        vae_metrics["kld"],
-                        vae_metrics["disc_loss"],
+            if (step % self.config['hyperparams']['eval_freq'] == 0) and (step != 0):
+                if step > self.config["hyperparams"]["discriminator_start_after"]:
+                    logging.info(
+                        "step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}, disc: {:.4f}".format(
+                            step + 1,
+                            vae_metrics["loss"],
+                            vae_metrics["mse"],
+                            vae_metrics["kld"],
+                            vae_metrics["disc_loss"],
+                        )
                     )
-                )
 
-                if jnp.isnan(vae_metrics["loss"]):
-                    logging.warning("nan data detected. auto-break.")
-                    break
+                    if jnp.isnan(vae_metrics["loss"]):
+                        logging.warning("nan data detected. auto-break.")
+                        break
 
-                logging.info(
-                    "discriminator loss: {:.4f}".format(discriminator_metric["loss"])
-                )
-            else:
-                logging.info(
-                    "step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}".format(
-                        step + 1,
-                        vae_metrics["loss"],
-                        vae_metrics["mse"],
-                        vae_metrics["kld"],
+                    logging.info(
+                        "discriminator loss: {:.4f}".format(discriminator_metric["loss"])
                     )
-                )
+                else:
+                    logging.info(
+                        "step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}".format(
+                            step + 1,
+                            vae_metrics["loss"],
+                            vae_metrics["mse"],
+                            vae_metrics["kld"],
+                        )
+                    )
 
-                if jnp.isnan(vae_metrics["loss"]):
-                    logging.warning("nan data detected. auto-break.")
-                    break
+                    if jnp.isnan(vae_metrics["loss"]):
+                        logging.warning("nan data detected. auto-break.")
+                        break
 
-            if auxiliary_metric:
-                batchwise_ssim = ssim(
-                    comparison[: self.config["hyperparams"]["batch_size"]],
-                    comparison[self.config["hyperparams"]["batch_size"] :],
-                )
-                logging.info("auxiliary SSIM: {:.4f}".format(batchwise_ssim))
+                if self.config['global_config']["compute_auxiliary_metric"]:
+                    batchwise_ssim = ssim(
+                        comparison[: self.config["hyperparams"]["batch_size"]],
+                        comparison[self.config["hyperparams"]["batch_size"] :],
+                    )
+                    logging.info("auxiliary SSIM: {:.4f}".format(batchwise_ssim))
 
         vae_mngr.wait_until_finished()

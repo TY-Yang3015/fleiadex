@@ -207,6 +207,17 @@ class Trainer:
             key=self.dropout_rng,
         )
 
+        sharding = jax.sharding.NamedSharding(
+            mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+            spec=jax.sharding.PartitionSpec(),
+        )
+
+        create_sharded_array = lambda x: jax.device_put(x, sharding)
+        vae_state = jax.tree_util.tree_map(create_sharded_array, vae_state)
+        vae_state = jax.tree_util.tree_map(
+            ocp.utils.to_shape_dtype_struct, vae_state
+        )
+
         restored = mngr.restore(
             mngr.latest_step(),
             args=ocp.args.Composite(vae_state=ocp.args.StandardRestore(vae_state)),
@@ -408,7 +419,7 @@ class Trainer:
                     self.temporal_length,
                     self.config["nn_spec"]["sample_input_shape"][1],
                     self.config["nn_spec"]["sample_input_shape"][2],
-                    self.config["nn_spec"]["sample_input_shape"][3],
+                    self.config["nn_spec"]["sample_input_shape"][3]
                 ),
                 jnp.float32,
             )
@@ -451,7 +462,7 @@ class Trainer:
                 diffusor_mngr = ocp.CheckpointManager(
                     save_path,
                     options=save_options,
-                    item_names=("diffusor_state", "config"),
+                    item_names=("diffuser_state", "config"),
                 )
 
             for step in range(1, self.config["hyperparams"]["step"] + 1):
@@ -465,7 +476,7 @@ class Trainer:
                     diffusor_mngr.save(
                         step,
                         args=ocp.args.Composite(
-                            diffusor_state=ocp.args.StandardSave(state),
+                            diffuser_state=ocp.args.StandardSave(state),
                             config=ocp.args.JsonSave(self.config.unfreeze()),
                         ),
                     )

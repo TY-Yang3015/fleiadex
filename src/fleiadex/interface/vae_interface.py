@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 from flax.core import FrozenDict
 from jax import random
+import jax
 import optax
 
 import orbax.checkpoint as ocp
@@ -27,7 +28,7 @@ def _get_optimiser(config: FrozenDict) -> optax.GradientTransformation:
 
 class VariationalAutoencoder:
     def __init__(self, ckpt_dir: dir, step: None | int = None):
-        print(f"loading vae from %s", ckpt_dir)
+        print(f"loading vae from {ckpt_dir}")
 
         if isinstance(ckpt_dir, str):
             ckpt_dir = path.Path(ckpt_dir)
@@ -64,12 +65,26 @@ class VariationalAutoencoder:
         params = self.vae.init(rngs, init_data, random.key(0), False)["params"]
 
         self.vae_optimiser = _get_optimiser(self.config)
+        self.vae_optimiser = optax.chain(
+            optax.clip_by_global_norm(1.),
+            self.vae_optimiser, )
 
         vae_state = TrainStateWithDropout.create(
             apply_fn=self.vae.apply,
             params=params,
-            tx=optax.adam(optax.cosine_decay_schedule(1e-8, 80000, 1e-11)),
+            tx=self.vae_optimiser,
             key=random.PRNGKey(42),
+        )
+
+        sharding = jax.sharding.NamedSharding(
+            mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+            spec=jax.sharding.PartitionSpec(),
+        )
+
+        create_sharded_array = lambda x: jax.device_put(x, sharding)
+        vae_state = jax.tree_util.tree_map(create_sharded_array, vae_state)
+        vae_state = jax.tree_util.tree_map(
+            ocp.utils.to_shape_dtype_struct, vae_state
         )
 
         if step is not None:
@@ -121,8 +136,7 @@ class VariationalAutoencoder:
         return decoded_image
 
 
-# vae = VariationalAutoencoder("/home/arezy/Desktop/fleiadex/training_scripts/vae/outputs/"
-#                             + "2024-08-04/09-59-46/results/vae_ckpt", step=25000)
+# vae = VariationalAutoencoder('/home/arezy/Desktop/fleiadex/outputs/2024-08-16/20-08-51/results/vae_ckpt')
 
 # dataloader = DataLoader(
 #    data_dir='../exp_data/satel_array_202312bandopt00_clear.npy',

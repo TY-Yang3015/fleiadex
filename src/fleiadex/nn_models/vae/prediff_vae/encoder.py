@@ -12,6 +12,7 @@ class Encoder(nn.Module):
     spatial_downsample_schedule: tuple[int] = (2, 2, 2)
     channel_schedule: tuple[int] = (128, 256, 512)
     resnet_depth_schedule: tuple[int] = (2, 2, 2, 2)
+    use_attention: bool = True
     attention_heads: int = 8
     attention_use_qkv_bias: bool = False
     attention_use_dropout: bool = True
@@ -153,7 +154,8 @@ class Encoder(nn.Module):
         for res_block in self.resnet_block_lists[-1]:
             x = res_block(x)
 
-        x = self.attention(x, train)
+        if self.use_attention:
+            x = self.attention(x, train)
         for block in self.final_res_blocks:
             x = block(x)
 

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "fleiadex"
 version = "0.1.0"
 description = "Your project description here"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = {text = "Mozilla Public License Version 2.0"}
 dependencies = [
     "tensorflow",

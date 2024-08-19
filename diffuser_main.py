@@ -8,18 +8,19 @@ from fleiadex.config import ConditionalDDPMConfig
 
 
 cs = ConfigStore.instance()
-cs.store(name="ldm_config", node=ConditionalDDPMConfig)
+cs.store(name="diffusion_config", node=ConditionalDDPMConfig)
 
 
-@hydra.main(version_base=None, config_name="ldm_config")
+@hydra.main(version_base=None, config_name="diffusion_config")
 def execute(config: LDMConfig) -> None:
     os.environ["CUDA_VISIBLE_DEVICES"] = config.global_config.use_which_gpus
+    os.environ["HYDRA_FULL_ERROR"] = '1'
     from src.fleiadex.trainers import get_diffuser_trainer
 
     trainer = get_diffuser_trainer(config)
-    # trainer.load_vae_from("/home/arezy/Desktop/fleiadex/training_scripts/vae/outputs/"
-    #                      "2024-07-27/16-43-15/results/vae_ckpt")
-    trainer.train(True)
+    #trainer.load_vae_from("/home/arezy/Desktop/fleiadex/outputs/"
+    #                      "2024-08-17/18-13-15/results/vae_ckpt")
+    trainer.train(force_visualisation=True)
 
 
 def main(argv):

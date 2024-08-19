@@ -8,3 +8,4 @@ outputs*
 *.idea
 *.DS_Store
 *.npy
+*.sh
