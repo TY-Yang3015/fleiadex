@@ -26,12 +26,16 @@ class Hyperparams:
     diffusion_time_steps: int = 1000
     step: int = 99999
     save_ckpt: bool = True
+    eval_freq: int = 1
     ckpt_freq: int = 2000
     save_prediction: bool = True
     gradient_clipping: float = 1.0
     ema_decay: float = 0.999
 
-    load_vae_dir: str | None = '/home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt'
+    load_vae_dir: str | None = None
+    load_ckpt_dir: str | None = "/home/arezy/Desktop/fleiadex/outputs/2024-08-18/20-30-00/results/ckpt"
+    load_ckpt_step: int | None = None
+    load_ckpt_config: bool = True
 
 
 @dataclass

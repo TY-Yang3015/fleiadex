@@ -93,9 +93,16 @@ class Trainer:
         if self.config['data_spec']['pre_encoded'] is False:
             if self.config['hyperparams']['load_vae_dir'] is not None:
                 self.load_vae_from(self.config['hyperparams']['load_vae_dir'])
-                self.__manual_load__ = True
+                self.__vae_ready__ = True
             else:
                 raise ValueError('for unencoded dataset, vae must be specified.')
+
+        self.__manual_load__ = False
+        if self.config['hyperparams']['load_ckpt_dir'] is not None:
+            self.load_diffuser_ckpt_from(self.config['hyperparams']['load_ckpt_dir'],
+                                         self.config['hyperparams']['load_ckpt_step'],
+                                         self.config['hyperparams']['load_ckpt_config'])
+            self.__manual_load__ = True
 
     def _init_rng(self) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         init_key = random.PRNGKey(42)
@@ -366,6 +373,90 @@ class Trainer:
         shutil.rmtree(directory)
         os.makedirs(directory)
 
+    def load_diffuser_ckpt_from(self, ckpt_dir: str, step: int | None = None,
+                                load_config: bool = True):
+        logging.info(f"loading 4d conditional diffuser from {ckpt_dir}")
+
+        if isinstance(ckpt_dir, str):
+            ckpt_dir = path.Path(ckpt_dir)
+        else:
+            raise ValueError("ckpt dir must be str.")
+
+        mngr = ocp.CheckpointManager(ckpt_dir, item_names=("diffuser_state", "config"))
+
+        if step is not None:
+            restored_config = mngr.restore(
+                step, args=ocp.args.Composite(config=ocp.args.JsonRestore())
+            )
+        else:
+            restored_config = mngr.restore(
+                mngr.latest_step(),
+                args=ocp.args.Composite(config=ocp.args.JsonRestore()),
+            )
+
+        if load_config:
+            self.config = FrozenDict(restored_config["config"])
+
+        self.diffuser = DDPMCore(
+            config=self.config,
+            diffusion_time_steps=self.config["hyperparams"]["diffusion_time_steps"],
+        )
+
+        init_data = jnp.ones(
+            (
+                self.config["hyperparams"]["batch_size"],
+                self.config["nn_spec"]["sample_input_shape"][0],
+                self.config["nn_spec"]["sample_input_shape"][1],
+                self.config["nn_spec"]["sample_input_shape"][2] +
+                self.config["nn_spec"]["cond_input_shape"][2],
+            ),
+            jnp.float32,
+        )
+
+        rngs = {"params": random.PRNGKey(0), "dropout": random.PRNGKey(42)}
+        params = self.diffuser.init(rngs, init_data, random.key(0), False)["params"]
+
+        self.diffuser_optimiser = self._get_optimiser(self.config)
+        self.diffuser_optimiser = optax.chain(
+            optax.clip_by_global_norm(self.config['hyperparams']['gradient_clipping']),
+            self.diffuser_optimiser,
+            optax.ema(self.config['hyperparams']['ema_decay']),
+        )
+
+        diffuser_state = TrainStateWithDropout.create(
+            apply_fn=self.diffuser.apply,
+            params=params,
+            tx=self.diffuser_optimiser,
+            key=self.train_key,
+        )
+
+        sharding = jax.sharding.NamedSharding(
+            mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+            spec=jax.sharding.PartitionSpec(),
+        )
+
+        create_sharded_array = lambda x: jax.device_put(x, sharding)
+        diffuser_state = jax.tree_util.tree_map(create_sharded_array, diffuser_state)
+        diffuser_state = jax.tree_util.tree_map(
+            ocp.utils.to_shape_dtype_struct, diffuser_state
+        )
+
+        if step is not None:
+            restored = mngr.restore(
+                step,
+                args=ocp.args.Composite(diffuser_state=ocp.args.StandardRestore(diffuser_state)),
+            )["diffuser_state"]
+        else:
+            restored = mngr.restore(
+                mngr.latest_step(),
+                args=ocp.args.Composite(diffuser_state=ocp.args.StandardRestore(diffuser_state)),
+            )["diffuser_state"]
+
+        self.diffuser_state = restored
+
+        logging.info("loading succeeded.")
+        del mngr
+
     def train(self, force_visualisation: bool = False):
         if self.config["data_spec"]["pre_encoded"] is True:
             if self.__vae_ready__ is True:
@@ -388,9 +479,10 @@ class Trainer:
             init_data = jnp.ones(
                 (
                     self.config["hyperparams"]["batch_size"],
-                    self.config["data_spec"]["output_image_size"],
-                    self.config["data_spec"]["output_image_size"],
-                    self.config["data_spec"]["image_channels"],
+                    self.config["nn_spec"]["sample_input_shape"][0],
+                    self.config["nn_spec"]["sample_input_shape"][1],
+                    self.config["nn_spec"]["sample_input_shape"][2] +
+                    self.config["nn_spec"]["cond_input_shape"][2],
                 ),
                 jnp.float32,
             )
@@ -408,6 +500,9 @@ class Trainer:
                 tx=self.optimiser,
                 key=self.dropout_rng,
             )
+
+            if self.__manual_load__:
+                state = self.diffuser_state
 
             sharding = jax.sharding.NamedSharding(
                 mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
@@ -422,6 +517,8 @@ class Trainer:
             save_options = ocp.CheckpointManagerOptions(
                 max_to_keep=self.config["global_config"]["save_num_ckpts"],
                 save_interval_steps=self.config["hyperparams"]["ckpt_freq"],
+                best_fn=lambda metrics: float(metrics),
+                best_mode='min'
             )
 
             if self.config["hyperparams"]["save_ckpt"]:
@@ -431,12 +528,34 @@ class Trainer:
                     item_names=("diffuser_state", "config"),
                 )
 
-            for step in range(1, self.config["hyperparams"]["step"] + 1):
+            for step in range(self.config["hyperparams"]["step"] + 1):
 
                 batch = self._get_next_train_batch_pre_encoded()
                 self._update_train_rng()
 
                 state = self._train_step(state, batch)
+
+                eval_count = 0
+                if (step % self.config['hyperparams']['eval_freq'] == 0):
+                    current_test = self._get_next_test_batch_pre_coded()
+                    self._update_eval_rng()
+
+                    metrics, prediction = self._evaluate_pre_encoded(
+                        state.params, current_test
+                    )
+
+                    logging.info(
+                        "step: {}, loss: {:.4f}, mse: {:.4f}".format(
+                            step, metrics["loss"], metrics["mse"]
+                        )
+                    )
+
+                    eval_count += 1
+                    if force_visualisation:
+                        self._save_output(self.save_dir, prediction, step, 'denoising')
+
+                        if (eval_count % 1000 == 0) and (step != 0):
+                            self._clear_result()
 
                 if self.config["hyperparams"]["save_ckpt"]:
                     diffuser_mngr.save(
@@ -445,26 +564,8 @@ class Trainer:
                             diffuser_state=ocp.args.StandardSave(state),
                             config=ocp.args.JsonSave(self.config.unfreeze()),
                         ),
+                        metrics=float(metrics['loss']),
                     )
-
-                current_test = self._get_next_test_batch_pre_coded()
-                self._update_eval_rng()
-
-                metrics, prediction = self._evaluate_pre_encoded(
-                    state.params, current_test
-                )
-
-                logging.info(
-                    "step: {}, loss: {:.4f}, mse: {:.4f}".format(
-                        step + 1, metrics["loss"], metrics["mse"]
-                    )
-                )
-
-                if force_visualisation:
-                    self._save_output(self.save_dir, prediction, step, 'denoising')
-
-                    if (step % 1000 == 0) and (step != 0):
-                        self._clear_result()
 
             diffuser_mngr.wait_until_finished()
 
@@ -478,9 +579,10 @@ class Trainer:
             init_data = jnp.ones(
                 (
                     self.config["hyperparams"]["batch_size"],
+                    self.config["nn_spec"]["sample_input_shape"][0],
                     self.config["nn_spec"]["sample_input_shape"][1],
-                    self.config["nn_spec"]["sample_input_shape"][2],
-                    self.config["nn_spec"]["sample_input_shape"][3],
+                    self.config["nn_spec"]["sample_input_shape"][2] +
+                    self.config["nn_spec"]["cond_input_shape"][2],
                 ),
                 jnp.float32,
             )
@@ -499,26 +601,24 @@ class Trainer:
                 key=self.dropout_rng,
             )
 
-            if len(jax.devices()) == 0:
-                sharding = jax.sharding.NamedSharding(
+            if self.__manual_load__:
+                state = self.diffuser_state
+
+            sharding = jax.sharding.NamedSharding(
                     mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
                     spec=jax.sharding.PartitionSpec(),
                 )
-            else:
-                sharding = jax.sharding.NamedSharding(
-                    mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
-                    spec=jax.sharding.PartitionSpec("model"),
-                )
             create_sharded_array = lambda x: jax.device_put(x, sharding)
             state = jax.tree_util.tree_map(create_sharded_array, state)
-            jax.tree_util.tree_map(lambda x: x.sharding, state)
 
             save_path = ocp.test_utils.erase_and_create_empty(
                 os.path.abspath(self.save_dir + "/ckpt")
             )
             save_options = ocp.CheckpointManagerOptions(
-                max_to_keep=5,
+                max_to_keep=self.config["global_config"]["save_num_ckpts"],
                 save_interval_steps=self.config["hyperparams"]["ckpt_freq"],
+                best_fn=lambda metrics: float(metrics),
+                best_mode='min'
             )
 
             if self.config["hyperparams"]["save_ckpt"]:
@@ -528,12 +628,31 @@ class Trainer:
                     item_names=("diffuser_state", "config"),
                 )
 
-            for step in range(1, self.config["hyperparams"]["step"] + 1):
+            for step in range(self.config["hyperparams"]["step"] + 1):
 
                 batch = self._get_next_train_batch()
                 self._update_train_rng()
 
                 state = self._train_step(state, batch)
+
+                eval_count = 0
+                if (step % self.config['hyperparams']['eval_freq'] == 0):
+                    current_test = self._get_next_test_batch()
+                    self._update_eval_rng()
+
+                    metrics, prediction = self._evaluate(state.params, current_test)
+
+                    self._save_output(self.save_dir, prediction, step)
+
+                    eval_count += 1
+                    if (eval_count % 1000 == 0) and (step != 0):
+                        self._clear_result()
+
+                    logging.info(
+                        "step: {}, loss: {:.4f}, mse: {:.4f}".format(
+                            step, metrics["loss"], metrics["mse"]
+                        )
+                    )
 
                 if self.config["hyperparams"]["save_ckpt"]:
                     diffuser_mngr.save(
@@ -542,22 +661,7 @@ class Trainer:
                             diffuser_state=ocp.args.StandardSave(state),
                             config=ocp.args.JsonSave(self.config.unfreeze()),
                         ),
+                        metrics=float(metrics['loss']),
                     )
-
-                current_test = self._get_next_test_batch()
-                self._update_eval_rng()
-
-                metrics, prediction = self._evaluate(state.params, current_test)
-
-                # self._save_output(self.save_dir, prediction, step)
-
-                if (step % 1000 == 0) and (step != 0):
-                    self._clear_result()
-
-                logging.info(
-                    "step: {}, loss: {:.4f}, mse: {:.4f}".format(
-                        step + 1, metrics["loss"], metrics["mse"]
-                    )
-                )
 
             diffuser_mngr.wait_until_finished()

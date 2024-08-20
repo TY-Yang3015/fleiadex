@@ -13,12 +13,15 @@ class Hyperparams:
     ema_decay: float = 0.999
 
     save_ckpt: bool = True
-    ckpt_freq: int = 2000
+    ckpt_freq: int = 1000
+    eval_freq: int = 10
     save_prediction: bool = True
 
-    load_ckpt_dir: str | None = '/home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt'
-    load_config: bool = True
-    ckpt_step: int | None = None
+    load_vae_dir: str | None = '/home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt'
+
+    load_ckpt_dir: str | None = "/home/arezy/Desktop/fleiadex/outputs/2024-08-18/20-30-00/results/ckpt"
+    load_ckpt_step: int | None = None
+    load_ckpt_config: bool = True
 
 
 @dataclass

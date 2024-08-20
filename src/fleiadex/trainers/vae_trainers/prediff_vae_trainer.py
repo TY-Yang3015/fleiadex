@@ -326,7 +326,7 @@ class Trainer:
                 "mse": mse_loss,
                 "kld": kld_loss,
                 "disc_loss": None,
-                "loss": mse_loss + kld_loss,
+                "loss": (mse_loss + kld_loss),
             }
 
         def evaluate_vae(vae, train):
@@ -594,6 +594,8 @@ class Trainer:
         save_options = ocp.CheckpointManagerOptions(
             max_to_keep=self.config["global_config"]["save_num_ckpts"],
             save_interval_steps=self.config["hyperparams"]["ckpt_freq"],
+            best_fn=lambda metrics: float(metrics),
+            best_mode='min'
         )
 
         if self.config["hyperparams"]["save_ckpt"]:
@@ -603,7 +605,7 @@ class Trainer:
             if self.config["hyperparams"]["save_discriminator"]:
                 disc_mngr = ocp.CheckpointManager(save_disc_path, options=save_options)
 
-        for step in range(1, self.config["hyperparams"]["step"] + 1):
+        for step in range(self.config["hyperparams"]["step"] + 1):
 
             batch = next(self.train_ds)
             if len(batch) != self.config["hyperparams"]["batch_size"]:
@@ -618,53 +620,41 @@ class Trainer:
             else:
                 vae_state = self._vae_init_step(vae_state, batch)
 
-            if self.config["hyperparams"]["save_ckpt"]:
-                vae_mngr.save(
-                    step,
-                    args=ocp.args.Composite(
-                        vae_state=ocp.args.StandardSave(vae_state),
-                        config=ocp.args.JsonSave(self.config.unfreeze()),
-                    ),
-                )
+            eval_count = 0
+            if (step % self.config['hyperparams']['eval_freq'] == 0):
+                current_test_ds = next(self.test_ds)
+                if len(current_test_ds) != self.config["hyperparams"]["batch_size"]:
+                    current_test_ds = next(self.test_ds)
 
-                if self.config["hyperparams"]["save_discriminator"]:
-                    disc_mngr.save(
-                        step, args=ocp.args.StandardSave(discriminator_state)
+                if step > self.config["hyperparams"]["discriminator_start_after"]:
+                    vae_metrics, comparison, sample = self._evaluate_vae(
+                        vae_state.params,
+                        current_test_ds,
+                        self.latent_sample,
+                        self.eval_rng,
+                        discriminator_state,
+                    )
+                    discriminator_metric = self._evaluate_discriminator(
+                        discriminator_state.params,
+                        discriminator_state.batch_stats,
+                        vae_state,
+                        current_test_ds,
+                    )
+                else:
+                    vae_metrics, comparison, sample = self._evaluate_init_vae(
+                        vae_state.params, current_test_ds, self.latent_sample, self.eval_rng
                     )
 
-            current_test_ds = next(self.test_ds)
-            if len(current_test_ds) != self.config["hyperparams"]["batch_size"]:
-                current_test_ds = next(self.test_ds)
+                self._save_output(self.save_dir, comparison.copy(), sample.copy(), step)
 
-            if step > self.config["hyperparams"]["discriminator_start_after"]:
-                vae_metrics, comparison, sample = self._evaluate_vae(
-                    vae_state.params,
-                    current_test_ds,
-                    self.latent_sample,
-                    self.eval_rng,
-                    discriminator_state,
-                )
-                discriminator_metric = self._evaluate_discriminator(
-                    discriminator_state.params,
-                    discriminator_state.batch_stats,
-                    vae_state,
-                    current_test_ds,
-                )
-            else:
-                vae_metrics, comparison, sample = self._evaluate_init_vae(
-                    vae_state.params, current_test_ds, self.latent_sample, self.eval_rng
-                )
+                eval_count += 1
+                if (eval_count % 1000 == 0) and (step != 0):
+                    self._clear_result()
 
-            self._save_output(self.save_dir, comparison.copy(), sample.copy(), step)
-
-            if (step % 1000 == 0) and (step != 0):
-                self._clear_result()
-
-            if (step % self.config['hyperparams']['eval_freq'] == 0) and (step != 0):
                 if step > self.config["hyperparams"]["discriminator_start_after"]:
                     logging.info(
                         "step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}, disc: {:.4f}".format(
-                            step + 1,
+                            step,
                             vae_metrics["loss"],
                             vae_metrics["mse"],
                             vae_metrics["kld"],
@@ -682,7 +672,7 @@ class Trainer:
                 else:
                     logging.info(
                         "step: {}, loss: {:.4f}, mse: {:.4f}, kld: {:.4f}".format(
-                            step + 1,
+                            step,
                             vae_metrics["loss"],
                             vae_metrics["mse"],
                             vae_metrics["kld"],
@@ -699,5 +689,22 @@ class Trainer:
                         comparison[self.config["hyperparams"]["batch_size"] :],
                     )
                     logging.info("auxiliary SSIM: {:.4f}".format(batchwise_ssim))
+
+            if self.config["hyperparams"]["save_ckpt"]:
+                vae_mngr.save(
+                    step,
+                    args=ocp.args.Composite(
+                        vae_state=ocp.args.StandardSave(vae_state),
+                        config=ocp.args.JsonSave(self.config.unfreeze()),
+
+                    ),
+                    metrics=float(vae_metrics['loss'])
+                )
+
+                if self.config["hyperparams"]["save_discriminator"]:
+                    disc_mngr.save(
+                        step, args=ocp.args.StandardSave(discriminator_state),
+                        metrics=float(vae_metrics['loss'])
+                    )
 
         vae_mngr.wait_until_finished()

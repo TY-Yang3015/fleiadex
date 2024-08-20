@@ -61,7 +61,8 @@ class ConditionalDiffuser4D:
                 self.config["hyperparams"]["batch_size"],
                 self.config["nn_spec"]["sample_input_shape"][0],
                 self.config["nn_spec"]["sample_input_shape"][1],
-                self.config["data_spec"]["image_channels"],
+                self.config["nn_spec"]["sample_input_shape"][2] +
+                self.config["nn_spec"]["cond_input_shape"][2],
             ),
             jnp.float32,
         )

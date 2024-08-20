@@ -15,12 +15,12 @@ class Hyperparams:
     save_ckpt: bool = True
     save_discriminator: bool = True
     ckpt_freq: int = 1000
-    eval_freq: int = 1
+    eval_freq: int = 10
     save_comparison: bool = True
     sample_size: int = 10
     save_sample: bool = True
 
-    load_ckpt_dir: str | None = '/home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt'
+    load_ckpt_dir: str | None = None
     load_config: bool = True
     ckpt_step: int | None = None
 
