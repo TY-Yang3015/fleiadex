@@ -608,8 +608,6 @@ class Trainer:
         for step in range(self.config["hyperparams"]["step"] + 1):
 
             batch = next(self.train_ds)
-            if len(batch) != self.config["hyperparams"]["batch_size"]:
-                batch = next(self.train_ds)
             self._update_train_rng()
 
             if step > self.config["hyperparams"]["discriminator_start_after"]:
@@ -623,8 +621,6 @@ class Trainer:
             eval_count = 0
             if (step % self.config['hyperparams']['eval_freq'] == 0):
                 current_test_ds = next(self.test_ds)
-                if len(current_test_ds) != self.config["hyperparams"]["batch_size"]:
-                    current_test_ds = next(self.test_ds)
 
                 if step > self.config["hyperparams"]["discriminator_start_after"]:
                     vae_metrics, comparison, sample = self._evaluate_vae(
