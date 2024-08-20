@@ -12,7 +12,7 @@ class DataSpec:
     batch_size: int = 10
     fixed_normalisation_spec: tuple[list[float, ...], ...] | None = None
     auto_normalisation: bool = True
-    output_image_size: int = 64
+    output_image_size: int = 32
     image_channels: int = 4
     pre_split: bool = False
     condition_length: int = 3
@@ -32,8 +32,8 @@ class Hyperparams:
     gradient_clipping: float = 1.0
     ema_decay: float = 0.999
 
-    load_vae_dir: str | None = None
-    load_ckpt_dir: str | None = "/home/arezy/Desktop/fleiadex/outputs/2024-08-18/20-30-00/results/ckpt"
+    load_vae_dir: str | None = None # '/home/arezy/Desktop/outputs/2024-08-19/13-16-42/results/vae_ckpt'
+    load_ckpt_dir: str | None = None
     load_ckpt_step: int | None = None
     load_ckpt_config: bool = True
 

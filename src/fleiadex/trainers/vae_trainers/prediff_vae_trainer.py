@@ -50,6 +50,8 @@ class Trainer:
         # convert to FrozenDict, the standard config container in jax
         self.config: FrozenDict = FrozenDict(OmegaConf.to_container(config))
 
+        jax.config.update('jax_debug_nans', self.config['global_config']['debug_nans'])
+
         # initialise the random number generator keys
         latent_rng, self.eval_rng, self.dropout_rng, self.train_key = self._init_rng()
         # train_key is only used to split keys
@@ -379,18 +381,20 @@ class Trainer:
             save_image(
                 save_dir + "/comparison",
                 comparison,
-                f"/comparison_{int(epoch + 1)}.png",
+                f"/comparison_{int(epoch + 1)}",
                 nrow=self.config["hyperparams"]["batch_size"],
+                mode=self.config['global_config']['save_format']
             )
 
         if self.config["hyperparams"]["save_sample"]:
             save_image(
                 save_dir + "/sample",
                 sample,
-                f"/sample_{int(epoch + 1)}.png",
+                f"/sample_{int(epoch + 1)}",
                 nrow=self.config["hyperparams"]["sample_size"]
                 if self.config["hyperparams"]["sample_size"] <= 10
                 else 10,
+                mode=self.config['global_config']['save_format']
             )
 
     def _clear_result(self):

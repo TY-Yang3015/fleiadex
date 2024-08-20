@@ -9,3 +9,6 @@ class GlobalConfig:
     use_predictor_backbone: str = "unet"
     save_num_ckpts: int = 3
     compute_auxiliary_metric: bool = True
+    save_format: str = 'npy'
+
+    debug_nans: bool = True

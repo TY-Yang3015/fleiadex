@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 @dataclass
 class UNet4DConv2DSpec:
-    sample_input_shape: tuple[int, int, int, int] = (64, 64, 1)
-    cond_input_shape: tuple[int, int, int, int] = (64, 64, 3)
-    spatial_down_sample_schedule: tuple[int] = (2, 2)
+    sample_input_shape: tuple[int, int, int, int] = (32, 32, 1)
+    cond_input_shape: tuple[int, int, int, int] = (32, 32, 3)
+    spatial_down_sample_schedule: tuple[int] = (1, 1)
     unet_use_residual: bool = True
     down_sampler_type: str = "conv"
     down_sample_resnet_depth: int = 1

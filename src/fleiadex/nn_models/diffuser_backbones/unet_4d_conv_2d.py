@@ -38,6 +38,8 @@ class UNet4DConv2D(nn.Module):
     up_sample_attention_use_dropout: bool = True
     up_sample_attention_dropout_rate: float = 0.1
 
+    dtype: jnp.dtype = jnp.float64
+
     def setup(self):
         self.base_channels = self.cond_input_shape[-1] + self.sample_input_shape[-1]
 

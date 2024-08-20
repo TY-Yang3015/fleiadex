@@ -45,6 +45,8 @@ class Trainer:
         # convert to FrozenDict, the standard config container in jax
         self.config: FrozenDict = FrozenDict(OmegaConf.to_container(config))
 
+        jax.config.update('jax_debug_nans', self.config['global_config']['debug_nans'])
+
         # initialise the random number generator keys
         (
             self.const_rng,
@@ -367,6 +369,7 @@ class Trainer:
                 prediction,
                 f"/prediction_{int(step + 1)}.png",
                 nrow=self.save_length,
+                mode=self.config["global_config"]["save_format"],
             )
 
     def _clear_result(self):

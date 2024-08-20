@@ -9,7 +9,7 @@ hyperparams:
   save_ckpt: true
   save_discriminator: true
   ckpt_freq: 1000
-  eval_freq: 1
+  eval_freq: 10
   save_comparison: true
   sample_size: 10
   save_sample: true

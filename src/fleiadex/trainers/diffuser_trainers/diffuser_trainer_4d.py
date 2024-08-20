@@ -44,6 +44,8 @@ class Trainer:
         # convert to FrozenDict, the standard config container in jax
         self.config: FrozenDict = FrozenDict(OmegaConf.to_container(config))
 
+        jax.config.update('jax_debug_nans', self.config['global_config']['debug_nans'])
+
         # initialise the random number generator keys
         (
             self.const_rng,
@@ -138,16 +140,14 @@ class Trainer:
 
     def _get_next_train_batch(self):
         batch = next(self.train_ds)
-        b, t, _, _, _ = batch.shape
-        batch = einops.rearrange(batch, "b t h w c -> (b t) h w c")
+        b, _, _, _ = batch.shape
         batch = self.vae.apply_fn(
             {"params": self.vae.params},
             batch,
             self.eval_rng,
-            rngs={"dropout": self.dropout_rng},
             method="encode",
         )
-        batch = batch.reshape(b, t, batch.shape[1], batch.shape[2], batch.shape[3])
+        batch = batch.reshape(b, batch.shape[1], batch.shape[2], batch.shape[3])
 
         return batch
 
@@ -156,16 +156,14 @@ class Trainer:
 
     def _get_next_test_batch(self):
         batch = next(self.test_ds)
-        b, t, _, _, _ = batch.shape
-        batch = einops.rearrange(batch, "b t h w c -> (b t) h w c")
+        b, _, _, _ = batch.shape
         batch = self.vae.apply_fn(
             {"params": self.vae.params},
             batch,
             self.eval_rng,
-            rngs={"dropout": self.dropout_rng},
             method="encode",
         )
-        batch = batch.reshape(b, t, batch.shape[1], batch.shape[2], batch.shape[3])
+        batch = batch.reshape(b, batch.shape[1], batch.shape[2], batch.shape[3])
 
         return batch
 
@@ -232,7 +230,7 @@ class Trainer:
             apply_fn=vae.apply,
             params=params,
             tx=vae_optimiser,
-            key=self.dropout_rng,
+            key=random.PRNGKey(42),
         )
 
         sharding = jax.sharding.NamedSharding(
@@ -276,7 +274,7 @@ class Trainer:
 
             condition = test_batch[..., :self.config["data_spec"]["condition_length"]]
             decoded_test_batch = self.vae.apply_fn(
-                {"params": params}, jnp.concatenate([condition, expect], axis=-1),
+                {"params": self.vae.params}, jnp.concatenate([condition, expect], axis=-1),
                 method='decode'
             )
 
@@ -303,7 +301,7 @@ class Trainer:
             )
 
             decoded_denoised_expect = self.vae.apply_fn(
-                {"params": params}, jnp.concatenate([condition, denoised_expect], axis=-1),
+                {"params": self.vae.params}, jnp.concatenate([condition, denoised_expect], axis=-1),
                 method="decode"
             )[..., self.config["data_spec"]["condition_length"]:]
 
@@ -361,12 +359,23 @@ class Trainer:
 
     def _save_output(self, save_dir, prediction, step, image_name='prediction'):
         if self.config["hyperparams"]["save_prediction"]:
-            save_many_images(
-                save_dir + "/predictions",
-                prediction,
-                f"/{image_name}_{int(step + 1)}.png",
-                nrow=self.temporal_length * 2,
-            )
+            if self.config['global_config']['save_format'] == 'png':
+                save_many_images(
+                    save_dir + "/predictions",
+                    prediction,
+                    f"/{image_name}_{int(step + 1)}",
+                    nrow=self.temporal_length * 2,
+                    mode='png'
+                )
+            else:
+                save_many_images(
+                    save_dir + "/predictions",
+                    prediction,
+                    f"/{image_name}_{int(step + 1)}",
+                    nrow=self.temporal_length * 2,
+                    mode='npy',
+                    save_keys=['cond', 'expected_pred', 'noised_pred', 'denoised_pred']
+                )
 
     def _clear_result(self):
         directory = self.save_dir + "/predictions"
@@ -605,9 +614,9 @@ class Trainer:
                 state = self.diffuser_state
 
             sharding = jax.sharding.NamedSharding(
-                    mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
-                    spec=jax.sharding.PartitionSpec(),
-                )
+                mesh=jax.sharding.Mesh(jax.devices(), axis_names="model"),
+                spec=jax.sharding.PartitionSpec(),
+            )
             create_sharded_array = lambda x: jax.device_put(x, sharding)
             state = jax.tree_util.tree_map(create_sharded_array, state)
 
@@ -630,8 +639,8 @@ class Trainer:
 
             for step in range(self.config["hyperparams"]["step"] + 1):
 
+                self._update_eval_rng()
                 batch = self._get_next_train_batch()
-                self._update_train_rng()
 
                 state = self._train_step(state, batch)
 

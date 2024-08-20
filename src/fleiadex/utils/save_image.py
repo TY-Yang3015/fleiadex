@@ -12,6 +12,7 @@ def save_image(
         padding: int = 2,
         pad_value: float = 0.0,
         format_img: any = None,
+        mode: str = "png",
 ):
     """Make a grid of images and Save it into an image file.
 
@@ -26,6 +27,8 @@ def save_image(
         format_img(Optional):  If omitted, the format to use is determined from the
           filename extension. If a file object was used instead of a filename,
           this parameter should always be used.
+        mode (str, optional): the mode to use for saving the image. Defaults to 'png'.
+            choose 'npy' to save the data in `.npy` format.
     """
 
     if not (
@@ -38,46 +41,56 @@ def save_image(
         raise TypeError(f"array_like of tensors expected, got {type(ndarray)}")
 
     ndarray = jnp.asarray(ndarray)
-    if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
-        ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)
-    elif ndarray.ndim == 4 and ndarray.shape[-1] == 2:  # double-channel images
-        ndarray = jnp.concatenate((ndarray[..., 0], ndarray[..., 1], ndarray[..., 1]), -1)
-    elif ndarray.ndim == 4 and ndarray.shape[-1] > 3:
-        ndarray = ndarray[:, :, :, :3]
 
-    ndarray = jnp.asarray(ndarray)
-    ndarray -= ndarray.min()
-    ndarray /= ndarray.max()
-    ndarray *= 1.
+    if mode.casefold() == 'npy':
+        jnp.save(save_dir + fp + ".npy", ndarray)
+        return None
 
-    # make the mini-batch of images into a grid
-    nmaps = ndarray.shape[0]
-    xmaps = min(nrow, nmaps)
-    ymaps = int(math.ceil(float(nmaps) / xmaps))
-    height, width = (
-        int(ndarray.shape[1] + padding),
-        int(ndarray.shape[2] + padding),
-    )
-    num_channels = ndarray.shape[3]
-    grid = jnp.full(
-        (height * ymaps + padding, width * xmaps + padding, num_channels),
-        pad_value,
-    ).astype(jnp.float32)
-    k = 0
-    for y in range(ymaps):
-        for x in range(xmaps):
-            if k >= nmaps:
-                break
-            grid = grid.at[
-                   y * height + padding: (y + 1) * height,
-                   x * width + padding: (x + 1) * width,
-                   ].set(ndarray[k])
-            k = k + 1
+    elif mode.casefold() == 'png':
+        if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
+            ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)
+        elif ndarray.ndim == 4 and ndarray.shape[-1] == 2:  # double-channel images
+            ndarray = jnp.concatenate((ndarray[..., 0], ndarray[..., 1], ndarray[..., 1]), -1)
+        elif ndarray.ndim == 4 and ndarray.shape[-1] > 3:
+            ndarray = ndarray[:, :, :, :3]
 
-    # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
-    ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
-    im = Image.fromarray(ndarr.copy(), mode="RGB")
-    im.save(save_dir + fp, format=format_img)
+        ndarray = jnp.asarray(ndarray)
+        ndarray -= ndarray.min()
+        ndarray /= ndarray.max()
+        ndarray *= 1.
+
+        # make the mini-batch of images into a grid
+        nmaps = ndarray.shape[0]
+        xmaps = min(nrow, nmaps)
+        ymaps = int(math.ceil(float(nmaps) / xmaps))
+        height, width = (
+            int(ndarray.shape[1] + padding),
+            int(ndarray.shape[2] + padding),
+        )
+        num_channels = ndarray.shape[3]
+        grid = jnp.full(
+            (height * ymaps + padding, width * xmaps + padding, num_channels),
+            pad_value,
+        ).astype(jnp.float32)
+        k = 0
+        for y in range(ymaps):
+            for x in range(xmaps):
+                if k >= nmaps:
+                    break
+                grid = grid.at[
+                       y * height + padding: (y + 1) * height,
+                       x * width + padding: (x + 1) * width,
+                       ].set(ndarray[k])
+                k = k + 1
+
+        # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
+        ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
+        im = Image.fromarray(ndarr.copy(), mode="RGB")
+        im.save(save_dir + fp + '.png', format=format_img)
+        return None
+
+    else:
+        raise NotImplementedError(f"save mode '{mode}' not implemented.")
 
 
 def save_many_images(
@@ -88,6 +101,8 @@ def save_many_images(
         padding: int = 2,
         pad_value: float = 0.0,
         format_img: any = None,
+        mode: str = "png",
+        save_keys: list[str] | None = None,
 ):
     """Make a grid of images and Save it into an image file.
 
@@ -102,6 +117,9 @@ def save_many_images(
         format_img(Optional):  If omitted, the format to use is determined from the
           filename extension. If a file object was used instead of a filename,
           this parameter should always be used.
+        mode (str, optional): the mode to use for saving the image. Defaults to 'png'.
+            choose 'npy' to save the data in `.npy` format.
+        save_keys (list[str], optional): the list of keys to save the images as .npz files.
     """
 
     new_array = []
@@ -115,48 +133,59 @@ def save_many_images(
         ):
             raise TypeError(f"array_like of tensors expected, got {type(ndarray)}")
 
-
-        if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
-            ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)
-        elif ndarray.ndim == 4 and ndarray.shape[-1] == 2:  # double-channel images
-            ndarray = jnp.concatenate((ndarray[..., 0], ndarray[..., 1], ndarray[..., 1]), -1)
-        elif ndarray.ndim == 4 and ndarray.shape[-1] > 3:
-            ndarray = ndarray[:, :, :, :3]
+        if mode.casefold() == 'png':
+            if ndarray.ndim == 4 and ndarray.shape[-1] == 1:  # single-channel images
+                ndarray = jnp.concatenate((ndarray, ndarray, ndarray), -1)
+            elif ndarray.ndim == 4 and ndarray.shape[-1] == 2:  # double-channel images
+                ndarray = jnp.concatenate((ndarray[..., 0], ndarray[..., 1], ndarray[..., 1]), -1)
+            elif ndarray.ndim == 4 and ndarray.shape[-1] > 3:
+                ndarray = ndarray[:, :, :, :3]
 
         new_array.append(ndarray)
 
-    ndarray = jnp.concatenate(new_array, 0)
+    if mode.casefold() == 'npy':
+        save_dict = {}
+        for key, val in zip(save_keys, new_array):
+            save_dict[key] = val
+        np.savez(save_dir + fp + ".npz", **save_dict)
 
-    ndarray = jnp.asarray(ndarray)
-    ndarray -= ndarray.min()
-    ndarray /= ndarray.max()
-    ndarray *= 1.
+    elif mode.casefold() == 'png':
 
-    # make the mini-batch of images into a grid
-    nmaps = ndarray.shape[0]
-    xmaps = min(nrow, nmaps)
-    ymaps = int(math.ceil(float(nmaps) / xmaps))
-    height, width = (
-        int(ndarray.shape[1] + padding),
-        int(ndarray.shape[2] + padding),
-    )
-    num_channels = ndarray.shape[3]
-    grid = jnp.full(
-        (height * ymaps + padding, width * xmaps + padding, num_channels),
-        pad_value,
-    ).astype(jnp.float32)
-    k = 0
-    for y in range(ymaps):
-        for x in range(xmaps):
-            if k >= nmaps:
-                break
-            grid = grid.at[
-                   y * height + padding: (y + 1) * height,
-                   x * width + padding: (x + 1) * width,
-                   ].set(ndarray[k])
-            k = k + 1
+        ndarray = jnp.concatenate(new_array, 0)
 
-    # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
-    ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
-    im = Image.fromarray(ndarr.copy(), mode="RGB")
-    im.save(save_dir + fp, format=format_img)
+        ndarray = jnp.asarray(ndarray)
+        ndarray -= ndarray.min()
+        ndarray /= ndarray.max()
+        ndarray *= 1.
+
+        # make the mini-batch of images into a grid
+        nmaps = ndarray.shape[0]
+        xmaps = min(nrow, nmaps)
+        ymaps = int(math.ceil(float(nmaps) / xmaps))
+        height, width = (
+            int(ndarray.shape[1] + padding),
+            int(ndarray.shape[2] + padding),
+        )
+        num_channels = ndarray.shape[3]
+        grid = jnp.full(
+            (height * ymaps + padding, width * xmaps + padding, num_channels),
+            pad_value,
+        ).astype(jnp.float32)
+        k = 0
+        for y in range(ymaps):
+            for x in range(xmaps):
+                if k >= nmaps:
+                    break
+                grid = grid.at[
+                       y * height + padding: (y + 1) * height,
+                       x * width + padding: (x + 1) * width,
+                       ].set(ndarray[k])
+                k = k + 1
+
+        # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
+        ndarr = np.array(jnp.clip(grid * 255, 0, 255).astype(jnp.uint8))
+        im = Image.fromarray(ndarr.copy(), mode="RGB")
+        im.save(save_dir + fp + '.png', format=format_img)
+
+    else:
+        raise NotImplementedError(f"save mode '{mode}' not implemented.")

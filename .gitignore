@@ -9,3 +9,5 @@ outputs*
 *.DS_Store
 *.npy
 *.sh
+*.ipynb
+*.yaml

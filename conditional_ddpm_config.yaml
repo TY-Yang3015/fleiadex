@@ -4,11 +4,15 @@ hyperparams:
   diffusion_time_steps: 1000
   step: 99999
   save_ckpt: true
+  eval_freq: 1
   ckpt_freq: 2000
   save_prediction: true
   gradient_clipping: 1.0
   ema_decay: 0.999
-  load_vae_dir: /home/arezy/Desktop/fleiadex/outputs/2024-08-17/18-13-15/results/vae_ckpt
+  load_vae_dir: null
+  load_ckpt_dir: /home/arezy/Desktop/fleiadex/outputs/2024-08-18/20-30-00/results/ckpt
+  load_ckpt_step: null
+  load_ckpt_config: true
 data_spec:
   _target_: fleiadex.data_module.FleiadexDataLoader
   pre_encoded: true
